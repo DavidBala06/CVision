@@ -5,5 +5,10 @@ __pycache__/
 *.pyo
 *.pyd
 node_modules
+obsidian
+.DS_Store
+.idea
+.vscode
+obsidian_db
 
 

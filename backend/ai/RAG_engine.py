@@ -90,29 +90,19 @@ def create_retriever_chain(vector_db):
     
     return rag_chain
 
-# if __name__ == "__main__":
-#     # 0. Asigură-te că există folderul ca să nu dea eroare scriptul
-#     os.makedirs(OBSIDIAN_VAULT_PATH, exist_ok=True)
-    
-#     # Creează un fișier de test dacă folderul e gol
-#     test_file = os.path.join(OBSIDIAN_VAULT_PATH, "candidat_test.md")
-#     if not os.path.exists(test_file):
-#         with open(test_file, "w", encoding="utf-8") as f:
-#             f.write("# David B.\nSenioritate: Mid-Level\nTehnologii: Python, LangChain, RAG, React\nLocație: Cluj-Napoca\nSumar: Pasionat de AI Automation Agencies și dezvoltare de sisteme LLM inteligente.")
+ __name__ == "__main__":
+   #0. Asigură-te că există folderul ca să nu dea eroare scriptul
+   o.makedirs(OBSIDIAN_VAULT_PATH, exist_ok=Tru
 
-#     # 1. Construim vectorii
-#     db = build_vector_database()
-    
-#     if db:
-#         # 2. Inițializăm motorul
-#         matcher = create_retriever_chain(db)
+   da
+    if db:
+        # 2. Inițializăm motorul
+        matcher = create_retriever_chain(db)
         
-#         # 3. Facem o căutare (Asta va veni din interfața utilizatorului / HR)
-#         hr_query = "Caut pe cineva în Cluj care știe Python și are experiență cu LangChain pentru un proiect de AI."
-#         print(f"\nHR a întrebat: {hr_query}\n")
-#         print("AI-ul caută și analizează...\n")
-        
-#         response = matcher.invoke({"input": hr_query})
-        
-#         print("--- RĂSPUNS AI (SHORTLIST) ---")
-#         print(response["answer"])
+        # 3. Facem o căutare (Asta va veni din interfața utilizatorului / HR)
+      hr_query = "Caut pe cineva în Cluj care știe Python și are experiență cu LangChain pentru un proiect de AI."
+      print(f"\nHR a întrebat: {hr_query}\n")
+   p    response = matcher.invoke({"input": hr_query})
+      
+       pint("--- RĂSPUNS AI (SHORTLIST) ---")
+       pint(response["answer"])
