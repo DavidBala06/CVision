@@ -1,10 +1,10 @@
 """
-CV Ingestion Module — Module 1: Extract Agent
+CV Ingestion Module 
 
 Handles:
-- 1a: Manual CV/LinkedIn extraction → structured JSON mapped to CSV columns
-- 1b: All required fields (name, seniority, years_exp, etc.)
-- 1c: (Nice-to-have) Automatic NER-style extraction via LLM
+Manual CV/LinkedIn extraction → structured JSON mapped to CSV columns
+All required fields (name, seniority, years_exp, etc.)
+
 
 Also performs dedup checking against existing talent pool.
 """
@@ -34,7 +34,7 @@ EXTRACTION_FIELDS = [
 
 
 def get_llm():
-    """Initialize Groq LLM."""
+    # Initialize Groq LLM.
     return ChatGroq(
         model="llama-3.3-70b-versatile",
         temperature=0.01,
@@ -45,8 +45,6 @@ def get_llm():
 
 def extract_from_text(raw_text: str) -> dict:
     """
-    Module 1a + 1c: Extract candidate information from raw CV/LinkedIn text.
-    
     Uses LLM as automatic NER to parse unstructured text into structured fields.
     Returns a dict mapped to CSV columns for human-in-the-loop preview.
     """
