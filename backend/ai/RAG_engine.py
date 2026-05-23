@@ -14,7 +14,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 
-# Importul oficial pentru conectarea la Groq API
+# Rămânem pe Groq pentru că e super stabil și rapid
 from langchain_groq import ChatGroq
 
 load_dotenv()
@@ -29,7 +29,8 @@ def normalize_path(value: str) -> str:
 OBSIDIAN_VAULT_PATH = normalize_path(
     os.getenv("OBSIDIAN_VAULT_PATH", str(BASE_DIR / "obsidian_db" / "OBSIDIAN-DATA-POOL"))
 )
-CHROMA_DB_PATH = normalize_path(os.getenv("CHROMA_DB_PATH", "./chroma_storage"))
+# Folderul chroma va fi salvat corect mereu în rădăcina proiectului
+CHROMA_DB_PATH = normalize_path(os.getenv("CHROMA_DB_PATH", str(BASE_DIR / "chroma_storage")))
 
 def build_vector_database():
     print(f"Loading Obsidian vault from: {OBSIDIAN_VAULT_PATH}")
@@ -49,13 +50,12 @@ def build_vector_database():
         print(f"No documents found in the Obsidian vault at '{OBSIDIAN_VAULT_PATH}'")
         return None
 
-    # Păstrăm profilul de candidat intact mărind dimensiunea fragmentului
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=4000, chunk_overlap=0)
+    # Mărim chunk-ul ca profilurile să nu fie tăiate, prevenind halucinațiile
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=15000, chunk_overlap=0)
     splits = text_splitter.split_documents(documents)
     
     print(f"Loaded {len(documents)} documents, split into {len(splits)} chunks.")
 
-    # Generarea locală a embeddings pe procesor (CPU)
     embeddings = HuggingFaceEmbeddings(
         model_name="all-MiniLM-L6-v2",
         model_kwargs={"device": "cpu"},
@@ -69,39 +69,45 @@ def build_vector_database():
     return vector_db
 
 def create_retriever_chain(vector_db):
-    # LLM-ul rulează prin Groq pentru performanță ultra-rapidă și stabilă
+    # Folosim versiunea 8B de la Llama 3.1
+    # Are o limită gratuită de 30.000 TPM, deci nu vei mai primi "Request too large"
     llm = ChatGroq(
-        model="llama-3.3-70b-versatile",
-        temperature=0.1
+        model="llama-3.1-8b-instant",
+        temperature=0.0
     )
 
     parser = JsonOutputParser()
 
     template = """
-    You are an expert HR Talent Matcher. Analyze the provided candidate profiles in the context and match them to the HR Query.
+    You are a strict and objective HR Talent Matcher.
     
     HR Query: {input}
     
     Context from Obsidian Database:
     {context}
     
+    CRITICAL RULES - DO NOT VIOLATE:
+    1. DO NOT HALLUCINATE OR INVENT DATA. 
+    2. You MUST use EXACTLY the role, title, skills, and languages as they appear in the candidate's profile context.
+    3. If the candidate is a "Business Analyst", DO NOT label them a "Data Scientist" or anything else. Use their REAL current role.
+    4. If the candidates in the context DO NOT fit the HR Query well enough, return an empty array: []
+    5. Extract the REAL name and REAL initials. Do not guess.
+
     INSTRUCTIONS:
     Identify up to 3 best matching candidates from the context.
-    You MUST respond with a valid JSON array of objects. Do not write anything else outside the JSON.
+    You MUST respond with a valid JSON array of objects.
     Each object must exactly match these keys:
-    - "initials": string (e.g., "AB")
+    - "initials": string
     - "name": string
-    - "role": string (e.g., "Data Scientist")
+    - "role": string (Strictly use the REAL current_role_title from the document)
     - "matchScore": integer (0-100)
     - "matchRank": string (e.g., "#1 match")
     - "skillsScore": integer (0-100)
     - "expScore": integer (0-100)
     - "locationScore": integer (0-100)
-    - "tags": array of 3 string skills (e.g., ["Python", "Machine Learning", "SQL"])
-    - "langs": string (e.g., "EN · RO")
+    - "tags": array of 3 string skills (ONLY use real skills found in their profile)
+    - "langs": string (ONLY use real languages found, e.g., "EN · RO · IT")
     - "colorTheme": string (choose strictly from "purple", "green", "blue")
-    
-    If no candidates match, return: []
     
     {format_instructions}
     """
@@ -112,12 +118,12 @@ def create_retriever_chain(vector_db):
         partial_variables={"format_instructions": parser.get_format_instructions()},
     )
 
-    retriever = vector_db.as_retriever(search_kwargs={"k": 5})
+    # Reducem k=3 pentru a extrage doar cei mai buni 3 candidați, înjumătățind dimensiunea promptului
+    retriever = vector_db.as_retriever(search_kwargs={"k": 3})
 
     def format_docs(docs):
         return "\n\n".join(doc.page_content for doc in docs)
 
-    # FIX CRITIC: itemgetter("input") extrage textul brut, prevenind eroarea 'dict' has no attribute 'replace'
     rag_chain = (
         {
             "context": itemgetter("input") | retriever | format_docs,
