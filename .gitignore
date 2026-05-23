@@ -11,6 +11,8 @@ obsidian
 .vscode
 obsidian_db
 chroma_storage
+backend/_claude/
+backend/retrieval_output.txt
 
 
 

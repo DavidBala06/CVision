@@ -19,12 +19,25 @@ OBSIDIAN_VAULT_PATH = os.getenv("OBSIDIAN_VAULT_PATH", "./obsidian_db")
 CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", "./chroma_storage")
 
 
-def build_vector_database():
+def _make_embeddings():
+    return HuggingFaceEmbeddings(
+        model_name="all-MiniLM-L6-v2",
+        model_kwargs={"device": "cpu"},
+    )
+
+
+def build_vector_database(force_rebuild: bool = False):
     os.makedirs(OBSIDIAN_VAULT_PATH, exist_ok=True)
+
+    embeddings = _make_embeddings()
+
+    if os.path.isdir(CHROMA_DB_PATH) and os.listdir(CHROMA_DB_PATH) and not force_rebuild:
+        print(f"Loading existing Chroma DB from '{CHROMA_DB_PATH}'")
+        return Chroma(persist_directory=CHROMA_DB_PATH, embedding_function=embeddings)
 
     loader = DirectoryLoader(
         OBSIDIAN_VAULT_PATH,
-        glob="**/*.md",
+        glob="candidates/**/*.md",
         loader_cls=TextLoader,
         loader_kwargs={"encoding": "utf-8", "autodetect_encoding": True},
         silent_errors=True,
@@ -32,17 +45,21 @@ def build_vector_database():
     )
     documents = loader.load()
 
+    # Within each candidate folder, exclude the linkedin/cv export under
+    # attachments/ — they share generic structure and dilute retrieval.
+    documents = [
+        d for d in documents
+        if "attachments" not in d.metadata.get("source", "").replace("\\", "/").split("/")
+    ]
+
     if not documents:
         print(f"No documents found in the Obsidian vault at '{OBSIDIAN_VAULT_PATH}'")
         return None
 
+    print(f"Indexing {len(documents)} candidate cards from '{OBSIDIAN_VAULT_PATH}'")
+
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     splits = text_splitter.split_documents(documents)
-
-    embeddings = HuggingFaceEmbeddings(
-        model_name="all-MiniLM-L6-v2",
-        model_kwargs={"device": "cpu"},
-    )
 
     vector_db = Chroma.from_documents(
         documents=splits,
@@ -52,16 +69,31 @@ def build_vector_database():
     return vector_db
 
 
-def create_retriever_chain(vector_db):
-    llm_repo_id = os.getenv("HF_LLM_REPO_ID", "mistralai/Mistral-7B-Instruct-v0.3")
+def _build_llm():
+    """Pick the best available LLM. Anthropic Claude is preferred."""
+    if os.getenv("ANTHROPIC_API_KEY"):
+        from langchain_anthropic import ChatAnthropic
+        model = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929")
+        print(f"LLM provider: Anthropic Claude ({model})")
+        return ChatAnthropic(
+            model=model,
+            temperature=0.1,
+            max_tokens=1024,
+        )
 
+    llm_repo_id = os.getenv("HF_LLM_REPO_ID", "mistralai/Mistral-7B-Instruct-v0.3")
+    print(f"LLM provider: HuggingFace Inference ({llm_repo_id})")
     endpoint = HuggingFaceEndpoint(
         repo_id=llm_repo_id,
         task="conversational",
         temperature=0.1,
         max_new_tokens=1024,
     )
-    llm = ChatHuggingFace(llm=endpoint)
+    return ChatHuggingFace(llm=endpoint)
+
+
+def create_retriever_chain(vector_db):
+    llm = _build_llm()
 
     template = """
     You are an expert HR Talent Matcher. Using the provided context (which contains candidate profiles from our database),
