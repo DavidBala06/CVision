@@ -1,4 +1,11 @@
+"""
+RAG Engine 
+
+Shortlisting — scan talent pool CSV, rank candidates for a job.
+Uses Chroma vector store + Groq LLM for semantic search and ranking, maybe we will switch to huggingface, i dont trust groq
+"""
 import os
+import csv
 import warnings
 from pathlib import Path
 from dotenv import load_dotenv
@@ -7,124 +14,152 @@ from operator import itemgetter
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-from langchain_community.document_loaders import DirectoryLoader, TextLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings, HuggingFaceEndpoint, ChatHuggingFace
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain_core.prompts import PromptTemplate
+from langchain_groq import ChatGroq
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.documents import Document
+
+from ai.guardrails import sanitize_input, validate_json_output, get_system_guardrail_prompt
 
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+CSV_PATH = Path(os.getenv("CSV_PATH", str(BASE_DIR / "data" / "talent_pool.csv")))
+CHROMA_DB_PATH = str(BASE_DIR / "chroma_csv_storage")
 
-def normalize_path(value: str) -> str:
-    value = value.strip().strip('"')
-    value = value.replace('\\', '/')
-    return str(Path(value).expanduser())
 
-OBSIDIAN_VAULT_PATH = normalize_path(
-    os.getenv("OBSIDIAN_VAULT_PATH", str(BASE_DIR / "obsidian_db" / "OBSIDIAN-DATA-POOL"))
-)
-CHROMA_DB_PATH = normalize_path(os.getenv("CHROMA_DB_PATH", str(BASE_DIR / "chroma_storage")))
+def load_csv_as_documents() -> list[Document]:
+    # Load each CSV row as a LangChain Document for vector indexing.
+    if not CSV_PATH.exists():
+        print(f"CSV not found at {CSV_PATH}")
+        return []
+
+    documents = []
+    with open(CSV_PATH, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            # Build rich text content from all fields
+            content_parts = [
+                f"Name: {row.get('name', '')}",
+                f"Seniority: {row.get('seniority', '')}",
+                f"Years of Experience: {row.get('years_of_experience', '')}",
+                f"Current Role: {row.get('current_role', '')}",
+                f"Previous Jobs: {row.get('previous_jobs', '')}",
+                f"Degrees: {row.get('degrees', '')}",
+                f"Location: {row.get('location', '')}",
+                f"Languages: {row.get('languages', '')}",
+                f"Technologies: {row.get('technologies', '')}",
+                f"Project Summary: {row.get('project_summary', '')}",
+            ]
+            
+            # Filter out empty fields
+            content = "\n".join(p for p in content_parts if not p.endswith(": "))
+            
+            metadata = {
+                "name": row.get("name", ""),
+                "seniority": row.get("seniority", ""),
+                "location": row.get("location", ""),
+                "technologies": row.get("technologies", ""),
+                "linkedin_url": row.get("linkedin_url", ""),
+                "github_url": row.get("github_url", ""),
+                "email": row.get("email", ""),
+                "status": row.get("status", ""),
+            }
+            
+            documents.append(Document(page_content=content, metadata=metadata))
+
+    return documents
+
 
 def build_vector_database():
-    print(f"Loading Obsidian vault from: {OBSIDIAN_VAULT_PATH}")
-    os.makedirs(OBSIDIAN_VAULT_PATH, exist_ok=True)
+    #Build Chroma vector database from CSV talent pool.
+    print(f"Loading talent pool from: {CSV_PATH}")
 
-    loader = DirectoryLoader(
-        OBSIDIAN_VAULT_PATH,
-        glob="**/*.md",
-        loader_cls=TextLoader,
-        loader_kwargs={"encoding": "utf-8", "autodetect_encoding": True},
-        silent_errors=True,
-        show_progress=False,
-    )
-    documents = loader.load()
+    documents = load_csv_as_documents()
 
     if not documents:
-        print(f"No documents found in the Obsidian vault at '{OBSIDIAN_VAULT_PATH}'")
+        print(f"No candidates found in CSV at '{CSV_PATH}'")
         return None
 
-    # CHUNKING STRATEGY: Păstrăm contextul întreg (5000), dar adăugăm overlap (200) pentru a nu rupe sensul
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=5000, chunk_overlap=200)
-    splits = text_splitter.split_documents(documents)
-    
-    print(f"Loaded {len(documents)} documents, split into {len(splits)} chunks.")
+    print(f"Loaded {len(documents)} candidate profiles from CSV.")
 
     embeddings = HuggingFaceEmbeddings(
         model_name="all-MiniLM-L6-v2",
         model_kwargs={"device": "cpu"},
     )
 
+    # Rebuild vector store each time (CSV is small, fast to index)
     vector_db = Chroma.from_documents(
-        documents=splits,
+        documents=documents,
         embedding=embeddings,
         persist_directory=CHROMA_DB_PATH,
     )
     return vector_db
 
-def create_retriever_chain(vector_db):
-    # LLM SETUP & LOWER TEMPERATURE: 0.01 elimină creativitatea (0 fix nu e permis de API)
-    base_llm = HuggingFaceEndpoint(
-        repo_id=os.getenv("HF_LLM_REPO_ID", "meta-llama/Meta-Llama-3-8B-Instruct"),
-        temperature=0.01,
-        max_new_tokens=1024,
-        huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN", "")
-    )
-    
-    llm = ChatHuggingFace(llm=base_llm)
 
-    # SCHEMA VALIDATION: Forțează modelul să returneze doar JSON sau va pica.
+def create_retriever_chain(vector_db):
+    #Create the RAG chain for candidate matching.
+    if vector_db is None:
+        return None
+
+    # LLM: Groq with Llama 3.3 
+    llm = ChatGroq(
+        model="llama-3.3-70b-versatile",
+        temperature=0.01,
+        max_tokens=2048,
+        api_key=os.getenv("GROQ_API_KEY", ""),
+    )
+
     parser = JsonOutputParser()
 
-    # STRICT PROMPT ENGINEERING: Reguli de fier împotriva halucinațiilor
-    template = """
-    You are a strict, objective "finder of facts" HR Talent Matcher. You are NOT a creative writer.
-    
-    HR Query: {input}
-    
-    Context from Obsidian Database:
-    {context}
-    
-    CRITICAL RULES - ENFORCING STRICT GROUNDING:
-    1. Base your answer STRICTLY on the provided context. 
-    2. If the information is not in the context, do not invent information. Respond with an empty array: []
-    3. Do not trust your internal knowledge. Use ONLY the role, title, skills, and languages as they appear in the candidate's profile context.
-    4. REQUIRE CITATIONS: For the "citation" field, you must extract a short, exact snippet from the document that proves why this candidate matches.
+    # Strict prompt with guardrails
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", get_system_guardrail_prompt() + """
+You are a strict, objective HR Talent Matcher. You find the best candidates from a talent pool CSV database.
 
-    INSTRUCTIONS:
-    Identify up to 3 best matching candidates from the context.
-    You MUST respond with a valid JSON array of objects. Do not write anything else outside the JSON.
-    Each object must exactly match these keys:
-    - "initials": string
-    - "name": string
-    - "role": string (Strictly use the REAL current_role_title from the document)
-    - "matchScore": integer (0-100)
-    - "matchRank": string
-    - "skillsScore": integer (0-100)
-    - "expScore": integer (0-100)
-    - "locationScore": integer (0-100)
-    - "tags": array of 3 string skills (ONLY use real skills found)
-    - "langs": string
-    - "colorTheme": string (choose strictly from "purple", "green", "blue")
-    - "citation": string (Short exact snippet from context proving the match)
-    
-    {format_instructions}
-    """
-    
-    prompt = PromptTemplate(
-        template=template,
-        input_variables=["input", "context"],
-        partial_variables={"format_instructions": parser.get_format_instructions()},
-    )
+CRITICAL RULES — STRICT GROUNDING:
+1. Base your answer STRICTLY on the provided context from the talent pool.
+2. If no candidates match, return an empty array: []
+3. Do NOT invent or hallucinate candidate information.
+4. REQUIRE CITATIONS: extract a short exact snippet proving the match.
+5. The LinkedIn URL must come from the context data — do NOT fabricate URLs.
 
-    # CONFIDENCE THRESHOLDS: Dacă documentul găsit are scor sub 0.3 similaritate, e aruncat automat la gunoi.
-    retriever = vector_db.as_retriever(search_kwargs={"k": 3})
+INSTRUCTIONS:
+Identify up to 3 best matching candidates from the context.
+Respond ONLY with a valid JSON array. No text outside the JSON.
 
-    # METADATA FILTERING: Adăugăm numele fișierului sursă direct în text ca LLM-ul să știe pe cine citește.
+Each object must have these exact keys:
+- "initials": string (first letters of first and last name)
+- "name": string
+- "role": string (use the REAL current_role from the data)
+- "matchScore": integer (0-100)
+- "matchRank": string ("Excellent", "Good", or "Fair")
+- "skillsScore": integer (0-100)
+- "expScore": integer (0-100)
+- "locationScore": integer (0-100)
+- "tags": array of 3 string skills (ONLY real skills from data)
+- "langs": string (languages spoken)
+- "linkedin_url": string (from data, or "" if not available)
+- "citation": string (exact snippet from context proving the match)
+- "colorTheme": string ("purple", "green", or "blue")
+
+{format_instructions}
+"""),
+        ("human", """HR Query: {input}
+
+Candidate profiles from Talent Pool CSV:
+{context}""")
+    ])
+
+    retriever = vector_db.as_retriever(search_kwargs={"k": 5})
+
     def format_docs(docs):
-        return "\n\n".join(f"--- CANDIDATE FILE: {doc.metadata.get('source', 'Unknown')} ---\n{doc.page_content}" for doc in docs)
+        return "\n\n".join(
+            f"--- CANDIDATE #{i+1} ---\n{doc.page_content}\nLinkedIn: {doc.metadata.get('linkedin_url', 'N/A')}\nGitHub: {doc.metadata.get('github_url', 'N/A')}"
+            for i, doc in enumerate(docs)
+        )
 
     rag_chain = (
         {
