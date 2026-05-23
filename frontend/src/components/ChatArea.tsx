@@ -6,10 +6,38 @@ import './ChatArea.css';
 const ChatArea: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [candidates, setCandidates] = useState<any[]>([]);
 
-  const handleSearch = () => {
-    if (inputValue.trim()) {
-      setHasSearched(true);
+  const handleSearch = async () => {
+    if (!inputValue.trim()) return;
+    
+    setHasSearched(true);
+    setIsLoading(true);
+    setSearchQuery(inputValue);
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/match', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: inputValue })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setCandidates(data);
+      } else {
+        console.error('Failed to fetch candidates');
+        setCandidates([]);
+      }
+    } catch (error) {
+      console.error('Error fetching candidates:', error);
+      setCandidates([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -42,32 +70,44 @@ const ChatArea: React.FC = () => {
             <h3>Ready to find your next great hire</h3>
             <p>Describe a role, paste a job description, or drop a CV to instantly shortlist top matches from your talent pool.</p>
           </div>
+        ) : isLoading ? (
+          <div className="empty-state">
+            <div className="empty-state-icon" style={{ animation: 'pulse 1.5s infinite' }}>
+              <Sparkles size={32} />
+            </div>
+            <h3>Analyzing talent pool...</h3>
+            <p>Running matching algorithm against your query.</p>
+          </div>
         ) : (
           <>
             <div className="results-header">
-              <h3>Matching run against: <span className="highlight-role">Product Manager</span></h3>
-              <p>Top 3 candidates found in the database.</p>
+              <h3>Matching run against: <span className="highlight-role">{searchQuery}</span></h3>
+              <p>{candidates.length} candidates found in the database.</p>
             </div>
             
             <div className="candidate-cards-container">
-                <CandidateCard 
-                  initials="AM" name="Ana Marinescu" role="Senior PM · Bucharest"
-                  matchScore={91} matchRank="#1 match"
-                  skillsScore={95} expScore={88} locationScore={100}
-                  tags={['Agile', 'SQL', 'Figma']} langs="EN · RO · IT" colorTheme="purple"
-                />
-                <CandidateCard 
-                  initials="RT" name="Radu Tănase" role="Lead BA · Cluj-Napoca"
-                  matchScore={80} matchRank="#2 match"
-                  skillsScore={82} expScore={91} locationScore={75}
-                  tags={['Jira', 'Python', 'GovTech']} langs="EN · RO" colorTheme="green"
-                />
-                <CandidateCard 
-                  initials="IC" name="Irina Constantin" role="Product Manager · Remote"
-                  matchScore={72} matchRank="#3 match"
-                  skillsScore={70} expScore={74} locationScore={80}
-                  tags={['Roadmaps', 'Stakeholders']} langs="EN · RO" colorTheme="blue"
-                />
+              {candidates.length > 0 ? (
+                candidates.map((c, i) => (
+                  <CandidateCard 
+                    key={i}
+                    initials={c.initials || "NA"} 
+                    name={c.name || "Unknown"} 
+                    role={c.role || "Candidate"}
+                    matchScore={c.matchScore || 0} 
+                    matchRank={c.matchRank || ""}
+                    skillsScore={c.skillsScore || 0} 
+                    expScore={c.expScore || 0} 
+                    locationScore={c.locationScore || 0}
+                    tags={c.tags || []} 
+                    langs={c.langs || ""} 
+                    colorTheme={c.colorTheme || "purple"}
+                  />
+                ))
+              ) : (
+                 <div className="empty-state" style={{ padding: '0' }}>
+                   <p>No suitable candidates found in the current pool for this query.</p>
+                 </div>
+              )}
             </div>
           </>
         )}

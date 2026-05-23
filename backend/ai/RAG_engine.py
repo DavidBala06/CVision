@@ -13,7 +13,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains import create_retrieval_chain
 
-# OBSIDIAN_VAULT_PATH = "./obsidian_db" 
+OBSIDIAN_VAULT_PATH = "./obsidian_db" 
 CHROMA_DB_PATH = "./chroma_storage"
 load_dotenv()
 
@@ -27,17 +27,17 @@ def build_vector_database():
         return None
     
     #Splits the documents into smaller chunks 
-    text_splitter = RecursiveCharacterTextSplitter(chunck_size = 1000, chunk_overlap = 200)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size = 1000, chunk_overlap = 200)
     splits = text_splitter.split_documents(documents)
     
     # We use local embeddings
     embeddings = HuggingFaceEmbeddings(
         model_name = "all-MiniLM-L6-v2",
-        model_kwargs = {"device": "cuda"})
+        model_kwargs = {"device": "cpu"}) # cpu instead of cuda to avoid errors if no gpu
     
     #Create or update the Chroma vector database
     vector_db = Chroma.from_documents(
-        docuemnts = splits,
+        documents = splits,
         embeddings = embeddings,
         persist_directory = CHROMA_DB_PATH
     )
@@ -48,21 +48,36 @@ def create_retriever_chain(vector_db):
     llm = HuggingFaceEndpoint(
         repo_id="mistralai/Mixtral-8x7B-Instruct-v0.1",
         temperature=0.1, 
-        max_new_tokens=512
+        max_new_tokens=1024
     )
     
     # Create the prompt template for the retrieval chain
     template = """
     You are an expert HR Talent Matcher. Using the provided context (which contains candidate profiles from our database), 
-    answer the HR manager's query. Identify the best candidates and briefly explain WHY they match.
-    If you don't find a good match in the context, say "Nu am găsit un candidat potrivit în baza de date curentă."
+    answer the HR manager's query. Identify the best candidates and explain why they match.
+    
+    IMPORTANT: You MUST return exactly a JSON array of up to 3 candidate objects. Do not add any markdown formatting like ```json. Just output the raw JSON array.
+    Each object MUST have the following keys:
+    - "initials": string (e.g. "AM")
+    - "name": string
+    - "role": string (e.g. "Senior PM · Bucharest")
+    - "matchScore": number (overall match percentage 0-100)
+    - "matchRank": string (e.g. "#1 match")
+    - "skillsScore": number (0-100)
+    - "expScore": number (0-100)
+    - "locationScore": number (0-100)
+    - "tags": array of 3 string skills
+    - "langs": string (e.g. "EN · RO")
+    - "colorTheme": string (choose from "purple", "green", "blue")
+    
+    If you don't find any good match, return an empty array [].
     
     Context from Obsidian Database:
     {context}
     
     HR Query: {input}
     
-    Response:
+    Response (RAW JSON ARRAY ONLY):
     """
     prompt = PromptTemplate.from_template(template)
     
