@@ -9,13 +9,10 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings, HuggingFaceEndpoint, ChatHuggingFace
 from langchain_community.vectorstores import Chroma
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
-
-# Rămânem pe Groq pentru că e super stabil și rapid
-from langchain_groq import ChatGroq
 
 load_dotenv()
 
@@ -29,7 +26,6 @@ def normalize_path(value: str) -> str:
 OBSIDIAN_VAULT_PATH = normalize_path(
     os.getenv("OBSIDIAN_VAULT_PATH", str(BASE_DIR / "obsidian_db" / "OBSIDIAN-DATA-POOL"))
 )
-# Folderul chroma va fi salvat corect mereu în rădăcina proiectului
 CHROMA_DB_PATH = normalize_path(os.getenv("CHROMA_DB_PATH", str(BASE_DIR / "chroma_storage")))
 
 def build_vector_database():
@@ -50,8 +46,8 @@ def build_vector_database():
         print(f"No documents found in the Obsidian vault at '{OBSIDIAN_VAULT_PATH}'")
         return None
 
-    # Mărim chunk-ul ca profilurile să nu fie tăiate, prevenind halucinațiile
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=15000, chunk_overlap=0)
+    # CHUNKING STRATEGY: Păstrăm contextul întreg (5000), dar adăugăm overlap (200) pentru a nu rupe sensul
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=5000, chunk_overlap=200)
     splits = text_splitter.split_documents(documents)
     
     print(f"Loaded {len(documents)} documents, split into {len(splits)} chunks.")
@@ -69,45 +65,50 @@ def build_vector_database():
     return vector_db
 
 def create_retriever_chain(vector_db):
-    # Folosim versiunea 8B de la Llama 3.1
-    # Are o limită gratuită de 30.000 TPM, deci nu vei mai primi "Request too large"
-    llm = ChatGroq(
-        model="llama-3.1-8b-instant",
-        temperature=0.0
+    # LLM SETUP & LOWER TEMPERATURE: 0.01 elimină creativitatea (0 fix nu e permis de API)
+    base_llm = HuggingFaceEndpoint(
+        repo_id=os.getenv("HF_LLM_REPO_ID", "meta-llama/Meta-Llama-3-8B-Instruct"),
+        temperature=0.01,
+        max_new_tokens=1024,
+        huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN", "")
     )
+    
+    llm = ChatHuggingFace(llm=base_llm)
 
+    # SCHEMA VALIDATION: Forțează modelul să returneze doar JSON sau va pica.
     parser = JsonOutputParser()
 
+    # STRICT PROMPT ENGINEERING: Reguli de fier împotriva halucinațiilor
     template = """
-    You are a strict and objective HR Talent Matcher.
+    You are a strict, objective "finder of facts" HR Talent Matcher. You are NOT a creative writer.
     
     HR Query: {input}
     
     Context from Obsidian Database:
     {context}
     
-    CRITICAL RULES - DO NOT VIOLATE:
-    1. DO NOT HALLUCINATE OR INVENT DATA. 
-    2. You MUST use EXACTLY the role, title, skills, and languages as they appear in the candidate's profile context.
-    3. If the candidate is a "Business Analyst", DO NOT label them a "Data Scientist" or anything else. Use their REAL current role.
-    4. If the candidates in the context DO NOT fit the HR Query well enough, return an empty array: []
-    5. Extract the REAL name and REAL initials. Do not guess.
+    CRITICAL RULES - ENFORCING STRICT GROUNDING:
+    1. Base your answer STRICTLY on the provided context. 
+    2. If the information is not in the context, do not invent information. Respond with an empty array: []
+    3. Do not trust your internal knowledge. Use ONLY the role, title, skills, and languages as they appear in the candidate's profile context.
+    4. REQUIRE CITATIONS: For the "citation" field, you must extract a short, exact snippet from the document that proves why this candidate matches.
 
     INSTRUCTIONS:
     Identify up to 3 best matching candidates from the context.
-    You MUST respond with a valid JSON array of objects.
+    You MUST respond with a valid JSON array of objects. Do not write anything else outside the JSON.
     Each object must exactly match these keys:
     - "initials": string
     - "name": string
     - "role": string (Strictly use the REAL current_role_title from the document)
     - "matchScore": integer (0-100)
-    - "matchRank": string (e.g., "#1 match")
+    - "matchRank": string
     - "skillsScore": integer (0-100)
     - "expScore": integer (0-100)
     - "locationScore": integer (0-100)
-    - "tags": array of 3 string skills (ONLY use real skills found in their profile)
-    - "langs": string (ONLY use real languages found, e.g., "EN · RO · IT")
+    - "tags": array of 3 string skills (ONLY use real skills found)
+    - "langs": string
     - "colorTheme": string (choose strictly from "purple", "green", "blue")
+    - "citation": string (Short exact snippet from context proving the match)
     
     {format_instructions}
     """
@@ -118,11 +119,15 @@ def create_retriever_chain(vector_db):
         partial_variables={"format_instructions": parser.get_format_instructions()},
     )
 
-    # Reducem k=3 pentru a extrage doar cei mai buni 3 candidați, înjumătățind dimensiunea promptului
-    retriever = vector_db.as_retriever(search_kwargs={"k": 3})
+    # CONFIDENCE THRESHOLDS: Dacă documentul găsit are scor sub 0.3 similaritate, e aruncat automat la gunoi.
+    retriever = vector_db.as_retriever(
+        search_type="similarity_score_threshold", 
+        search_kwargs={"score_threshold": 0.3, "k": 3}
+    )
 
+    # METADATA FILTERING: Adăugăm numele fișierului sursă direct în text ca LLM-ul să știe pe cine citește.
     def format_docs(docs):
-        return "\n\n".join(doc.page_content for doc in docs)
+        return "\n\n".join(f"--- CANDIDATE FILE: {doc.metadata.get('source', 'Unknown')} ---\n{doc.page_content}" for doc in docs)
 
     rag_chain = (
         {
@@ -135,13 +140,3 @@ def create_retriever_chain(vector_db):
     )
 
     return rag_chain
-
-if __name__ == "__main__":
-    db = build_vector_database()
-    if db:
-        matcher = create_retriever_chain(db)
-        hr_query = "Caut un Python Developer."
-        print(f"\nHR a intrebat: {hr_query}\n")
-        response = matcher.invoke({"input": hr_query})
-        print("--- RASPUNS AI (PARSED) ---")
-        print(response)
