@@ -1,25 +1,38 @@
 import os
 import warnings
+from pathlib import Path
 from dotenv import load_dotenv
+from operator import itemgetter
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings, HuggingFaceEndpoint, ChatHuggingFace
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_core.prompts import PromptTemplate
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain.chains import create_retrieval_chain
+from langchain_core.output_parsers import JsonOutputParser
+
+# Importul oficial pentru conectarea la Groq API
+from langchain_groq import ChatGroq
 
 load_dotenv()
 
-OBSIDIAN_VAULT_PATH = os.getenv("OBSIDIAN_VAULT_PATH", "./obsidian_db")
-CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", "./chroma_storage")
+BASE_DIR = Path(__file__).resolve().parent.parent
 
+def normalize_path(value: str) -> str:
+    value = value.strip().strip('"')
+    value = value.replace('\\', '/')
+    return str(Path(value).expanduser())
+
+OBSIDIAN_VAULT_PATH = normalize_path(
+    os.getenv("OBSIDIAN_VAULT_PATH", str(BASE_DIR / "obsidian_db" / "OBSIDIAN-DATA-POOL"))
+)
+CHROMA_DB_PATH = normalize_path(os.getenv("CHROMA_DB_PATH", "./chroma_storage"))
 
 def build_vector_database():
+    print(f"Loading Obsidian vault from: {OBSIDIAN_VAULT_PATH}")
     os.makedirs(OBSIDIAN_VAULT_PATH, exist_ok=True)
 
     loader = DirectoryLoader(
@@ -36,9 +49,13 @@ def build_vector_database():
         print(f"No documents found in the Obsidian vault at '{OBSIDIAN_VAULT_PATH}'")
         return None
 
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    # Păstrăm profilul de candidat intact mărind dimensiunea fragmentului
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=4000, chunk_overlap=0)
     splits = text_splitter.split_documents(documents)
+    
+    print(f"Loaded {len(documents)} documents, split into {len(splits)} chunks.")
 
+    # Generarea locală a embeddings pe procesor (CPU)
     embeddings = HuggingFaceEmbeddings(
         model_name="all-MiniLM-L6-v2",
         model_kwargs={"device": "cpu"},
@@ -51,65 +68,74 @@ def build_vector_database():
     )
     return vector_db
 
-
 def create_retriever_chain(vector_db):
-    llm_repo_id = os.getenv("HUGGINGFACEHUB_API_TOKEN", "mistralai/Mistral-7B-Instruct-v0.3")
-
-    endpoint = HuggingFaceEndpoint(
-        repo_id=llm_repo_id,
-        task="conversational",
-        temperature=0.1,
-        max_new_tokens=1024,
+    # LLM-ul rulează prin Groq pentru performanță ultra-rapidă și stabilă
+    llm = ChatGroq(
+        model="llama-3.3-70b-versatile",
+        temperature=0.1
     )
-    llm = ChatHuggingFace(llm=endpoint)
+
+    parser = JsonOutputParser()
 
     template = """
-    You are an expert HR Talent Matcher. Using the provided context (which contains candidate profiles from our database),
-    answer the HR manager's query. Identify the best candidates and explain why they match.
-
-    IMPORTANT: You MUST return exactly a JSON array of up to 3 candidate objects. Do not add any markdown formatting like ```json. Just output the raw JSON array.
-    Each object MUST have the following keys:
-    - "initials": string (e.g. "AM")
-    - "name": string
-    - "role": string (e.g. "Senior PM · Bucharest")
-    - "matchScore": number (overall match percentage 0-100)
-    - "matchRank": string (e.g. "#1 match")
-    - "skillsScore": number (0-100)
-    - "expScore": number (0-100)
-    - "locationScore": number (0-100)
-    - "tags": array of 3 string skills
-    - "langs": string (e.g. "EN · RO")
-    - "colorTheme": string (choose from "purple", "green", "blue")
-
-    If you don't find any good match, return an empty array [].
-
+    You are an expert HR Talent Matcher. Analyze the provided candidate profiles in the context and match them to the HR Query.
+    
+    HR Query: {input}
+    
     Context from Obsidian Database:
     {context}
-
-    HR Query: {input}
-
-    Response (RAW JSON ARRAY ONLY):
+    
+    INSTRUCTIONS:
+    Identify up to 3 best matching candidates from the context.
+    You MUST respond with a valid JSON array of objects. Do not write anything else outside the JSON.
+    Each object must exactly match these keys:
+    - "initials": string (e.g., "AB")
+    - "name": string
+    - "role": string (e.g., "Data Scientist")
+    - "matchScore": integer (0-100)
+    - "matchRank": string (e.g., "#1 match")
+    - "skillsScore": integer (0-100)
+    - "expScore": integer (0-100)
+    - "locationScore": integer (0-100)
+    - "tags": array of 3 string skills (e.g., ["Python", "Machine Learning", "SQL"])
+    - "langs": string (e.g., "EN · RO")
+    - "colorTheme": string (choose strictly from "purple", "green", "blue")
+    
+    If no candidates match, return: []
+    
+    {format_instructions}
     """
-    prompt = PromptTemplate.from_template(template)
+    
+    prompt = PromptTemplate(
+        template=template,
+        input_variables=["input", "context"],
+        partial_variables={"format_instructions": parser.get_format_instructions()},
+    )
 
-    retriever = vector_db.as_retriever(search_kwargs={"k": 3})
+    retriever = vector_db.as_retriever(search_kwargs={"k": 5})
 
-    question_answer_chain = create_stuff_documents_chain(llm, prompt)
-    rag_chain = create_retrieval_chain(retriever, question_answer_chain)
+    def format_docs(docs):
+        return "\n\n".join(doc.page_content for doc in docs)
+
+    # FIX CRITIC: itemgetter("input") extrage textul brut, prevenind eroarea 'dict' has no attribute 'replace'
+    rag_chain = (
+        {
+            "context": itemgetter("input") | retriever | format_docs,
+            "input": itemgetter("input"),
+        }
+        | prompt
+        | llm
+        | parser
+    )
 
     return rag_chain
 
-
 if __name__ == "__main__":
-    os.makedirs(OBSIDIAN_VAULT_PATH, exist_ok=True)
-
     db = build_vector_database()
     if db:
         matcher = create_retriever_chain(db)
-
-        hr_query = "Caut pe cineva in Cluj care stie Python si are experienta cu LangChain pentru un proiect de AI."
+        hr_query = "Caut un Python Developer."
         print(f"\nHR a intrebat: {hr_query}\n")
         response = matcher.invoke({"input": hr_query})
-
-        print("--- RASPUNS AI (SHORTLIST) ---")
-        print(response["answer"])
+        print("--- RASPUNS AI (PARSED) ---")
+        print(response)

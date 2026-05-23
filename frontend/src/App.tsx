@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
-import './index.css'; 
+import './index.css';
 
 export interface Candidate {
   initials: string;
@@ -53,13 +53,22 @@ function App() {
       if (!response.ok) throw new Error(`Server error: ${response.status}`);
       const data = await response.json();
 
+      // SAFETY NET: Ne asigurăm că datele sunt mereu un array pentru a nu bloca .map()
+      let candidatesArray: Candidate[] = [];
+      if (Array.isArray(data)) {
+        candidatesArray = data;
+      } else if (data && typeof data === 'object') {
+        // Dacă LLM-ul a returnat doar un obiect în loc de o listă cu un obiect
+        candidatesArray = [data as Candidate];
+      }
+
       const aiMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
-        text: data.length > 0 
-          ? `Am analizat profilurile din Obsidian. Iată topul candidaților care corespund cerințelor tale:` 
+        text: candidatesArray.length > 0
+          ? `Am analizat profilurile din Obsidian. Iată topul candidaților care corespund cerințelor tale:`
           : `Nu am găsit candidați în baza de date care să se potrivească perfect cu descrierea oferită. Încearcă să schimbi tehnologiile sau locația.`,
-        candidates: data
+        candidates: candidatesArray
       };
       setMessages((prev) => [...prev, aiMsg]);
     } catch (error) {
