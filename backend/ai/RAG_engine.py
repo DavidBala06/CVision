@@ -120,10 +120,7 @@ def create_retriever_chain(vector_db):
     )
 
     # CONFIDENCE THRESHOLDS: Dacă documentul găsit are scor sub 0.3 similaritate, e aruncat automat la gunoi.
-    retriever = vector_db.as_retriever(
-        search_type="similarity_score_threshold", 
-        search_kwargs={"score_threshold": 0.3, "k": 3}
-    )
+    retriever = vector_db.as_retriever(search_kwargs={"k": 3})
 
     # METADATA FILTERING: Adăugăm numele fișierului sursă direct în text ca LLM-ul să știe pe cine citește.
     def format_docs(docs):
