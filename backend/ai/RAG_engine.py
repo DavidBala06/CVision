@@ -1,7 +1,6 @@
 import os
 import warnings
 from dotenv import load_dotenv
-from lan
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
