@@ -61,12 +61,12 @@ const ChatArea: React.FC<ChatAreaProps> = ({ messages, onSendMessage, isLoading 
             type="text" 
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder="Scrie cerințele jobului (ex: Caut un Python Developer în Cluj...)"
+            placeholder="Describe the job requirements (e.g. Looking for a Python Developer in Cluj...)"
             disabled={isLoading}
             className="chat-input"
           />
           <button type="submit" disabled={isLoading} className="chat-submit-btn">
-            {isLoading ? '...' : 'Trimite'}
+            {isLoading ? '...' : 'Send'}
           </button>
         </form>
       </div>

@@ -14,7 +14,7 @@ chroma_storage
 .env.example
 challenge_text.txt
 Linnify challenge - AI Talent Pool Manager.pdf
-
-
-
-
+chroma/
+bin/
+*.bin
+chroma.sqlite3

@@ -4,7 +4,7 @@
   border: 1px solid var(--border-color);
   padding: 1.5rem;
   box-shadow: var(--shadow-sm);
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: var(--transition-base);
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -15,9 +15,10 @@
 .candidate-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-md);
+  border-color: var(--border-color-subtle);
 }
 
-/* Bara colorată din stânga bazată pe temă */
+/* Theme border on the left */
 .candidate-card::before {
   content: '';
   position: absolute;
@@ -27,12 +28,11 @@
   width: 4px;
 }
 
-/* Aplicarea culorilor de temă din backend */
 .candidate-card.theme-purple::before { background-color: var(--theme-purple); }
 .candidate-card.theme-green::before { background-color: var(--theme-green); }
 .candidate-card.theme-blue::before { background-color: var(--theme-blue); }
 
-/* Header-ul Cardului */
+/* Header */
 .card-header {
   display: flex;
   align-items: center;
@@ -49,7 +49,6 @@
   font-weight: 700;
   font-size: 1.1rem;
   color: #ffffff;
-  /* Culoare avatar bazată pe temă */
 }
 
 .candidate-card.theme-purple .avatar-circle { background-color: var(--theme-purple); }
@@ -69,7 +68,7 @@
 }
 
 .rank-badge {
-  margin-left: auto; /* Împinge badge-ul în dreapta */
+  margin-left: auto;
   font-size: 0.75rem;
   font-weight: 700;
   padding: 0.25rem 0.75rem;
@@ -77,15 +76,15 @@
   text-transform: uppercase;
 }
 
-.candidate-card.theme-purple .rank-badge { background-color: #f5f3ff; color: var(--theme-purple); }
-.candidate-card.theme-green .rank-badge { background-color: #ecfdf5; color: var(--theme-green); }
-.candidate-card.theme-blue .rank-badge { background-color: #eff6ff; color: var(--theme-blue); }
+.candidate-card.theme-purple .rank-badge { background-color: rgba(124, 58, 237, 0.15); color: #c4b5fd; }
+.candidate-card.theme-green .rank-badge { background-color: rgba(5, 150, 105, 0.15); color: #6ee7b7; }
+.candidate-card.theme-blue .rank-badge { background-color: rgba(37, 99, 235, 0.15); color: #93c5fd; }
 
-/* Sectiunea de Scoruri */
+/* Scores */
 .scores-row {
   display: flex;
   align-items: center;
-  background-color: #f9fafb;
+  background-color: var(--bg-surface);
   border-radius: var(--radius-md);
   padding: 1rem;
   border: 1px solid var(--border-color);
@@ -102,31 +101,32 @@
 
 .score-value {
   font-size: 1.5rem;
-  font-weight: 700;
-  /* Culoare scor bazată pe temă */
+  font-weight: 800;
 }
 
-.candidate-card.theme-purple .score-value { color: var(--theme-purple); }
-.candidate-card.theme-green .score-value { color: var(--theme-green); }
-.candidate-card.theme-blue .score-value { color: var(--theme-blue); }
+.candidate-card.theme-purple .score-value { color: #a78bfa; }
+.candidate-card.theme-green .score-value { color: #34d399; }
+.candidate-card.theme-blue .score-value { color: #60a5fa; }
 
 .score-label {
   font-size: 0.75rem;
-  color: var(--text-secondary);
-  font-weight: 500;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .sub-scores {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
 .score-item {
   display: flex;
   justify-content: space-between;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 .score-item .label {
@@ -138,7 +138,30 @@
   color: var(--text-primary);
 }
 
-/* Corpul Cardului & Tag-uri */
+/* Citation Box */
+.citation-box {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: rgba(255, 255, 255, 0.03);
+  border-left: 2px solid var(--accent-secondary);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin-bottom: 0.5rem;
+}
+
+.citation-icon {
+  font-style: normal;
+  font-size: 1rem;
+}
+
+.citation-text {
+  line-height: 1.4;
+}
+
+/* Body & Tags */
 .card-body {
   display: flex;
   flex-direction: column;
@@ -152,17 +175,17 @@
 }
 
 .skill-tag {
-  background-color: #f3f4f6;
-  color: #374151;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
   font-size: 0.75rem;
   font-weight: 500;
   padding: 0.35rem 0.75rem;
   border-radius: var(--radius-full);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
 }
 
 .languages-info {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--text-primary);
   border-top: 1px solid var(--border-color);
   padding-top: 0.75rem;
@@ -170,5 +193,18 @@
 
 .languages-info strong {
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-muted);
+}
+
+/* Footer */
+.card-footer {
+  border-top: 1px solid var(--border-color);
+  padding-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.linkedin-btn {
+  font-size: 0.75rem;
+  text-decoration: none;
 }

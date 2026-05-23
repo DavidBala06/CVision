@@ -165,6 +165,7 @@ Candidate profiles from Talent Pool CSV:
         {
             "context": itemgetter("input") | retriever | format_docs,
             "input": itemgetter("input"),
+            "format_instructions": lambda _: parser.get_format_instructions(),
         }
         | prompt
         | llm
