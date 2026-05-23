@@ -1,22 +1,8 @@
 import React from 'react';
 import './CandidateCard.css';
-import { ExternalLink } from 'lucide-react';
+import type { Candidate } from '../App';
 
-interface CandidateCardProps {
-  initials: string;
-  name: string;
-  role: string;
-  matchScore: number;
-  matchRank: string;
-  skillsScore: number;
-  expScore: number;
-  locationScore: number;
-  tags: string[];
-  langs: string;
-  colorTheme?: 'purple' | 'green' | 'blue';
-}
-
-const CandidateCard: React.FC<CandidateCardProps> = ({
+const CandidateCard: React.FC<Candidate> = ({
   initials,
   name,
   role,
@@ -27,67 +13,49 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
   locationScore,
   tags,
   langs,
-  colorTheme = 'purple'
+  colorTheme,
 }) => {
   return (
-    <div className={`candidate-card theme-${colorTheme}`}>
+    <div className={`candidate-card theme-${colorTheme || 'blue'}`}>
       <div className="card-header">
-        <div className="card-avatar">{initials}</div>
-        <div className="match-badge">{matchRank}</div>
-      </div>
-      <div className="card-info">
-        <h3>{name}</h3>
-        <p>{role}</p>
-      </div>
-      <div className="card-stats">
-        <div className="score-circle">
-          <svg viewBox="0 0 36 36" className="circular-chart">
-            <path className="circle-bg"
-              d="M18 2.0845
-                a 15.9155 15.9155 0 0 1 0 31.831
-                a 15.9155 15.9155 0 0 1 0 -31.831"
-            />
-            <path className="circle"
-              strokeDasharray={`${matchScore}, 100`}
-              d="M18 2.0845
-                a 15.9155 15.9155 0 0 1 0 31.831
-                a 15.9155 15.9155 0 0 1 0 -31.831"
-            />
-          </svg>
-          <div className="score-text">
-            <span className="score-num">{matchScore}</span>
-            <span className="score-label">score</span>
-          </div>
+        <div className="avatar-circle">{initials}</div>
+        <div className="candidate-info">
+          <h3>{name}</h3>
+          <p className="role-text">{role}</p>
         </div>
-        <div className="bar-charts">
-          <div className="bar-row">
-            <span>Skills</span>
-            <div className="bar-container"><div className="bar-fill" style={{ width: `${skillsScore}%` }}></div></div>
-            <span className="bar-value">{skillsScore}</span>
+        <div className="rank-badge">{matchRank}</div>
+      </div>
+
+      <div className="scores-row">
+        <div className="main-score">
+          <span className="score-value">{matchScore}%</span>
+          <span className="score-label">Match</span>
+        </div>
+        <div className="sub-scores">
+          <div className="score-item">
+            <span className="label">Skills:</span>
+            <span className="value">{skillsScore}%</span>
           </div>
-          <div className="bar-row">
-            <span>Exp.</span>
-            <div className="bar-container"><div className="bar-fill" style={{ width: `${expScore}%` }}></div></div>
-            <span className="bar-value">{expScore}</span>
+          <div className="score-item">
+            <span className="label">Experiență:</span>
+            <span className="value">{expScore}%</span>
           </div>
-          <div className="bar-row">
-            <span>Location</span>
-            <div className="bar-container"><div className="bar-fill" style={{ width: `${locationScore}%` }}></div></div>
-            <span className="bar-value">{locationScore}</span>
+          <div className="score-item">
+            <span className="label">Locație:</span>
+            <span className="value">{locationScore}%</span>
           </div>
         </div>
       </div>
-      <div className="card-tags">
-        <div className="skill-tags">
-          {tags.map(tag => <span key={tag} className="tag">{tag}</span>)}
+
+      <div className="card-body">
+        <div className="tags-container">
+          {tags.map((tag, index) => (
+            <span key={index} className="skill-tag">{tag}</span>
+          ))}
         </div>
-        <div className="lang-tags">
-          <span className="tag lang">{langs}</span>
+        <div className="languages-info">
+          <strong>Limbi străine:</strong> {langs}
         </div>
-      </div>
-      <div className="card-actions">
-        <button className="action-btn">Draft email <ExternalLink size={14} /></button>
-        <button className="action-btn outline">View profile</button>
       </div>
     </div>
   );

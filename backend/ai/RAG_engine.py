@@ -53,7 +53,7 @@ def build_vector_database():
 
 
 def create_retriever_chain(vector_db):
-    llm_repo_id = os.getenv("HF_LLM_REPO_ID", "mistralai/Mistral-7B-Instruct-v0.3")
+    llm_repo_id = os.getenv("HUGGINGFACEHUB_API_TOKEN", "mistralai/Mistral-7B-Instruct-v0.3")
 
     endpoint = HuggingFaceEndpoint(
         repo_id=llm_repo_id,

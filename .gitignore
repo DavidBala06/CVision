@@ -11,6 +11,7 @@ obsidian
 .vscode
 obsidian_db
 chroma_storage
+.env.example
 
 
 
