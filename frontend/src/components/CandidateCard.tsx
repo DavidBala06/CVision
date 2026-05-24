@@ -90,12 +90,12 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
             className="btn btn-sm btn-primary draft-email-btn"
             onClick={() => onDraftEmail(name)}
           >
-            ✉️ Draft Email
+            Draft Email
           </button>
         )}
         {github_url && (
           <a href={github_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm linkedin-btn">
-            🐙 View GitHub
+            View GitHub
           </a>
         )}
       </div>

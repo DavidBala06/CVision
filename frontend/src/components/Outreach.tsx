@@ -127,7 +127,7 @@ const Outreach: React.FC<OutreachProps> = ({ candidates, preselectedCandidate })
     <div className="outreach">
       <div className="section-header">
         <div>
-          <div className="section-title">✉️ Outreach & Communication</div>
+          <div className="section-title">Outreach & Communication</div>
           <div className="section-subtitle">Module 3: Email drafts + progress monitoring</div>
         </div>
         <div className="outreach-tabs">
@@ -135,7 +135,7 @@ const Outreach: React.FC<OutreachProps> = ({ candidates, preselectedCandidate })
             ✍️ Compose
           </button>
           <button className={`btn btn-sm ${activeSubTab === 'monitor' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveSubTab('monitor')}>
-            📊 Monitor
+            Monitor
           </button>
         </div>
       </div>
@@ -166,7 +166,7 @@ const Outreach: React.FC<OutreachProps> = ({ candidates, preselectedCandidate })
               </div>
 
               <button className="btn btn-primary" onClick={handleGenerateEmail} disabled={isGenerating || !selectedCandidate || !jobDescription.trim()}>
-                {isGenerating ? <><span className="spinner"></span> Generating...</> : '🤖 Generate Email Draft'}
+                {isGenerating ? <><span className="spinner"></span> Generating...</> : 'Generate Email Draft'}
               </button>
             </div>
 
@@ -176,7 +176,7 @@ const Outreach: React.FC<OutreachProps> = ({ candidates, preselectedCandidate })
                   <span className="preview-title">📧 Email Draft for {selectedCandidate}</span>
                   <div className="preview-actions">
                     <button className="btn btn-sm btn-secondary" onClick={copyToClipboard}>📋 Copy</button>
-                    <button className="btn btn-sm btn-success" onClick={handleMarkAsSent}>✅ Mark as Sent</button>
+                    <button className="btn btn-sm btn-success" onClick={handleMarkAsSent}>Mark as Sent</button>
                   </div>
                 </div>
                 <textarea

@@ -168,7 +168,7 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
     <div className="upload-cv">
       <div className="section-header">
         <div>
-          <div className="section-title">📄 Upload CV / LinkedIn Profile</div>
+          <div className="section-title">Upload CV / LinkedIn Profile</div>
           <div className="section-subtitle">Module 1: AI extracts candidate data for your review</div>
         </div>
       </div>
@@ -189,13 +189,13 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
                 <input ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileSelect} hidden />
                 {file ? (
                   <>
-                    <div className="drop-icon">✅</div>
+                    <div className="drop-icon"></div>
                     <div className="drop-text">{file.name}</div>
                     <div className="drop-hint">Click to change file</div>
                   </>
                 ) : (
                   <>
-                    <div className="drop-icon">📁</div>
+                    <div className="drop-icon"></div>
                     <div className="drop-text">Drop PDF here or click to browse</div>
                     <div className="drop-hint">Supports CV files in PDF format</div>
                   </>
@@ -223,7 +223,7 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
               {isExtracting ? (
                 <><span className="spinner"></span> Extracting with AI...</>
               ) : (
-                '🤖 Extract with AI (NER)'
+                'Extract with AI (NER)'
               )}
             </button>
           </div>
@@ -233,13 +233,13 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
         {extractedData && (
           <div className={`review-area ${pdfUrl ? 'has-pdf' : ''}`}>
             <div className="review-header">
-              <h3>🔍 Review Extracted Data</h3>
+              <h3>Review Extracted Data</h3>
               <p className="review-hint">Edit any field before approving. All data is AI-extracted — please verify.</p>
             </div>
 
             {isDuplicate && (
               <div className="duplicate-warning">
-                ⚠️ <strong>Duplicate candidate detected!</strong> 
+                <strong>Duplicate candidate detected!</strong> 
                 Clicking 'Approve & Merge' will intelligently blend this new data into their existing profile.
               </div>
             )}
@@ -249,7 +249,7 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
               {pdfUrl && (
                 <div className="pdf-viewer-panel">
                   <div className="pdf-viewer-header">
-                    <span className="pdf-viewer-title">📎 Original CV</span>
+                    <span className="pdf-viewer-title">Original CV</span>
                     <span className="pdf-viewer-filename">{file?.name}</span>
                   </div>
                   <iframe
@@ -293,7 +293,7 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
               <button className="btn btn-success" onClick={handleApprove} disabled={isApproving}>
                 {isApproving 
                   ? (isDuplicate ? 'Merging...' : 'Adding...') 
-                  : (isDuplicate ? '🔄 Approve & Merge' : '✅ Approve & Add to Pool')}
+                  : (isDuplicate ? 'Approve & Merge' : 'Approve & Add to Pool')}
               </button>
             </div>
           </div>

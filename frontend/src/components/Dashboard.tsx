@@ -76,19 +76,19 @@ const Dashboard: React.FC<DashboardProps> = ({ candidates, onRefresh }) => {
     <div className="dashboard">
       <div className="section-header">
         <div>
-          <div className="section-title">📊 Talent Pool</div>
+          <div className="section-title">Talent Pool</div>
           <div className="section-subtitle">{candidates.length} candidates in database</div>
         </div>
         <div className="header-actions">
           <button className="btn btn-secondary btn-sm" onClick={handleCheckStale}>
-            🔄 Check Stale
+            Check Stale
           </button>
           {staleCount !== null && staleCount > 0 && (
             <button className="btn btn-primary btn-sm" onClick={handleRefreshAll} disabled={refreshing}>
-              {refreshing ? 'Refreshing...' : `⚡ Refresh ${staleCount} Stale`}
+              {refreshing ? 'Refreshing...' : `Refresh ${staleCount} Stale`}
             </button>
           )}
-          {staleCount === 0 && <span className="stale-ok">✅ All up to date</span>}
+          {staleCount === 0 && <span className="stale-ok">All up to date</span>}
         </div>
       </div>
 
@@ -158,7 +158,7 @@ const Dashboard: React.FC<DashboardProps> = ({ candidates, onRefresh }) => {
         </table>
         {filtered.length === 0 && (
           <div className="empty-state">
-            <div className="empty-state-icon">🔍</div>
+            <div className="empty-state-icon"></div>
             <div className="empty-state-text">No candidates match your filters</div>
           </div>
         )}
