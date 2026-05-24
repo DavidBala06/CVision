@@ -168,7 +168,7 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
     <div className="upload-cv">
       <div className="section-header">
         <div>
-          <div className="section-title">Upload CV / LinkedIn Profile</div>
+          <div className="section-title">Upload CV / Github Profile</div>
           <div className="section-subtitle">Module 1: AI extracts candidate data for your review</div>
         </div>
       </div>
@@ -207,7 +207,7 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
               <div className="paste-area">
                 <textarea
                   className="form-textarea paste-input"
-                  placeholder="Paste LinkedIn profile text here..."
+                  placeholder="Paste Github link here..."
                   value={pastedText}
                   onChange={e => setPastedText(e.target.value)}
                   rows={6}
@@ -223,7 +223,7 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
               {isExtracting ? (
                 <><span className="spinner"></span> Extracting with AI...</>
               ) : (
-                'Extract with AI (NER)'
+                'Extract with AI'
               )}
             </button>
           </div>

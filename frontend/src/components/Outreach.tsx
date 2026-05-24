@@ -132,7 +132,7 @@ const Outreach: React.FC<OutreachProps> = ({ candidates, preselectedCandidate })
         </div>
         <div className="outreach-tabs">
           <button className={`btn btn-sm ${activeSubTab === 'compose' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveSubTab('compose')}>
-            ✍️ Compose
+            Compose
           </button>
           <button className={`btn btn-sm ${activeSubTab === 'monitor' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveSubTab('monitor')}>
             Monitor

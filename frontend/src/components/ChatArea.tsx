@@ -30,7 +30,6 @@ const ChatArea: React.FC<ChatAreaProps> = ({ messages, onSendMessage, isLoading,
       <div className="chat-history">
         {messages.map((msg) => (
           <div key={msg.id} className={`message-wrapper ${msg.sender}`}>
-            <div className="avatar-placeholder">{msg.sender === 'user' ? 'HR' : 'AI'}</div>
             <div className="message-content">
               <div className="message-bubble">{msg.text}</div>
               {msg.candidates && msg.candidates.length > 0 && (
@@ -45,7 +44,6 @@ const ChatArea: React.FC<ChatAreaProps> = ({ messages, onSendMessage, isLoading,
         ))}
         {isLoading && (
           <div className="message-wrapper ai">
-            <div className="avatar-placeholder">AI</div>
             <div className="message-content">
               <div className="message-bubble typing">
                 <span className="dot"></span><span className="dot"></span><span className="dot"></span>

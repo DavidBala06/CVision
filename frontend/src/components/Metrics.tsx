@@ -92,19 +92,6 @@ const Metrics: React.FC = () => {
           </div>
         </div>
 
-        {/* Target accuracy */}
-        <div className="metrics-section">
-          <h3 className="metrics-section-title">Match Accuracy Target</h3>
-          <div className="accuracy-bar-container">
-            <div className="accuracy-info">
-              <span className="accuracy-label">Target: {metrics.target_accuracy} matching candidates to roles</span>
-              <span className="accuracy-framework">{metrics.evaluation_framework}</span>
-            </div>
-            <div className="accuracy-bar">
-              <div className="accuracy-fill" style={{ width: '80%' }}></div>
-            </div>
-          </div>
-        </div>
 
         {/* Outreach funnel */}
         <div className="metrics-section">

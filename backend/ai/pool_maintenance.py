@@ -169,6 +169,21 @@ def get_pool_stats() -> dict:
             sen = row.get("seniority", "unknown") or "unknown"
             seniority_dist[sen] = seniority_dist.get(sen, 0) + 1
             loc = row.get("location", "unknown") or "unknown"
+            
+            # Normalize location
+            loc_lower = loc.lower()
+            if not loc_lower or loc_lower == "unknown" or loc_lower == "romania":
+                loc = "Romania"
+            elif "cluj" in loc_lower:
+                loc = "Cluj-Napoca"
+            elif "bucharest" in loc_lower or "bucuresti" in loc_lower:
+                if "timisoara" in loc_lower:
+                    loc = "Bucharest / Timisoara"
+                else:
+                    loc = "Bucharest"
+            else:
+                loc = loc.replace(", Romania", "").replace(", România", "").strip()
+                
             location_dist[loc] = location_dist.get(loc, 0) + 1
 
     return {
