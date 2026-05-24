@@ -4,6 +4,7 @@ import type { PoolCandidate } from '../App';
 
 interface OutreachProps {
   candidates: PoolCandidate[];
+  preselectedCandidate?: string;
 }
 
 interface OutreachCandidate {
@@ -15,7 +16,7 @@ interface OutreachCandidate {
   needs_followup: boolean;
 }
 
-const Outreach: React.FC<OutreachProps> = ({ candidates }) => {
+const Outreach: React.FC<OutreachProps> = ({ candidates, preselectedCandidate }) => {
   const [selectedCandidate, setSelectedCandidate] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [emailDraft, setEmailDraft] = useState('');
@@ -26,6 +27,14 @@ const Outreach: React.FC<OutreachProps> = ({ candidates }) => {
   useEffect(() => {
     fetchOutreachStatus();
   }, []);
+
+  // Auto-select candidate when navigated from shortlist "Draft Email"
+  useEffect(() => {
+    if (preselectedCandidate) {
+      setSelectedCandidate(preselectedCandidate);
+      setActiveSubTab('compose');
+    }
+  }, [preselectedCandidate]);
 
   const fetchOutreachStatus = async () => {
     try {

@@ -12,7 +12,7 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  max-width: 900px;
+  max-width: 1200px;
   margin: 0 auto;
   width: 100%;
 }
@@ -22,6 +22,9 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  max-width: 700px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .upload-methods {
@@ -81,7 +84,9 @@
   font-size: 0.9rem;
 }
 
-/* Review area */
+/* ═══════════════════════════════════════════
+   REVIEW AREA — Split-screen with PDF viewer
+   ═══════════════════════════════════════════ */
 .review-area {
   display: flex;
   flex-direction: column;
@@ -107,6 +112,78 @@
   border-radius: var(--radius-md);
   color: #fbbf24;
   font-size: 0.8125rem;
+}
+
+/* Split layout: PDF on left, form on right */
+.review-split-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.review-split-layout.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  min-height: 600px;
+}
+
+.review-split-layout.no-pdf {
+  display: flex;
+  flex-direction: column;
+}
+
+/* PDF viewer panel */
+.pdf-viewer-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  position: sticky;
+  top: 0;
+}
+
+.pdf-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.pdf-viewer-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pdf-viewer-filename {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-iframe {
+  width: 100%;
+  flex: 1;
+  min-height: 550px;
+  border: none;
+  background: #fff;
+}
+
+/* Review form panel */
+.review-form-panel {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  max-height: 650px;
 }
 
 .review-grid {
@@ -143,4 +220,19 @@
   border-radius: var(--radius-md);
   color: #4ade80;
   font-size: 0.8125rem;
+}
+
+/* Responsive: stack on small screens */
+@media (max-width: 900px) {
+  .review-split-layout.split {
+    grid-template-columns: 1fr;
+  }
+
+  .pdf-iframe {
+    min-height: 400px;
+  }
+
+  .review-form-panel {
+    max-height: none;
+  }
 }

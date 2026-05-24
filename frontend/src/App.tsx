@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import Dashboard from './components/Dashboard';
 import UploadCV from './components/UploadCV';
 import Outreach from './components/Outreach';
-import LinkedInSearch from './components/LinkedInSearch';
+import GitHubSearch from './components/GitHubSearch';
 import Metrics from './components/Metrics';
 import './index.css';
 
@@ -51,11 +50,12 @@ export interface PoolCandidate {
   last_updated_at: string;
 }
 
-type TabId = 'dashboard' | 'shortlist' | 'upload' | 'outreach' | 'linkedin' | 'metrics';
+type TabId = 'dashboard' | 'shortlist' | 'upload' | 'outreach' | 'github' | 'metrics';
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   const [poolCandidates, setPoolCandidates] = useState<PoolCandidate[]>([]);
+  const [preselectedCandidate, setPreselectedCandidate] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -129,18 +129,23 @@ function App() {
     }
   };
 
+  const handleDraftEmail = (candidateName: string) => {
+    setPreselectedCandidate(candidateName);
+    setActiveTab('outreach');
+  };
+
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard candidates={poolCandidates} onRefresh={fetchCandidates} />;
       case 'shortlist':
-        return <ChatArea messages={messages} onSendMessage={handleHRQuery} isLoading={isLoading} />;
+        return <ChatArea messages={messages} onSendMessage={handleHRQuery} isLoading={isLoading} onDraftEmail={handleDraftEmail} />;
       case 'upload':
         return <UploadCV onCandidateAdded={fetchCandidates} />;
       case 'outreach':
-        return <Outreach candidates={poolCandidates} />;
-      case 'linkedin':
-        return <LinkedInSearch />;
+        return <Outreach candidates={poolCandidates} preselectedCandidate={preselectedCandidate} />;
+      case 'github':
+        return <GitHubSearch />;
       case 'metrics':
         return <Metrics />;
       default:
@@ -153,28 +158,39 @@ function App() {
     { id: 'shortlist', label: 'Shortlist', icon: '🎯' },
     { id: 'upload', label: 'Upload CV', icon: '📄' },
     { id: 'outreach', label: 'Outreach', icon: '✉️' },
-    { id: 'linkedin', label: 'LinkedIn Search', icon: '🔍' },
+    { id: 'github', label: 'GitHub Search', icon: '🐙' },
     { id: 'metrics', label: 'Metrics', icon: '📈' },
   ];
 
   return (
     <div className="app-container">
-      <Sidebar
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        candidateCount={poolCandidates.length}
-      />
       <main className="main-content">
         <div className="tab-header">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.icon} {tab.label}
-            </button>
-          ))}
+          <div className="navbar-brand">
+            <span className="brand-icon">🧠</span>
+            <div className="brand-text">
+              <span className="brand-name">TalentAI</span>
+              <span className="brand-sub">by CVision</span>
+            </div>
+          </div>
+          <div className="navbar-tabs">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                id={`nav-tab-${tab.id}`}
+                className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <span className="tab-icon">{tab.icon}</span> {tab.label}
+              </button>
+            ))}
+          </div>
+          <div className="navbar-meta">
+            <div className="pool-count-badge">
+              <span className="pool-count-num">{poolCandidates.length}</span>
+              <span className="pool-count-label">in pool</span>
+            </div>
+          </div>
         </div>
         <div className="tab-content">
           {renderActiveTab()}

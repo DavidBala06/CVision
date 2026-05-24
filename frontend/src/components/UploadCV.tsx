@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './UploadCV.css';
 
 interface UploadCVProps {
@@ -33,6 +33,14 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
   const [successMsg, setSuccessMsg] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  // Clean up object URL when component unmounts or PDF changes
+  useEffect(() => {
+    return () => {
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    };
+  }, [pdfUrl]);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -46,17 +54,29 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files?.[0]) {
-      setFile(e.dataTransfer.files[0]);
+      const droppedFile = e.dataTransfer.files[0];
+      setFile(droppedFile);
       setExtractedData(null);
       setSuccessMsg('');
+      // Create preview URL for PDF
+      if (droppedFile.type === 'application/pdf') {
+        if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+        setPdfUrl(URL.createObjectURL(droppedFile));
+      }
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      setFile(selectedFile);
       setExtractedData(null);
       setSuccessMsg('');
+      // Create preview URL for PDF
+      if (selectedFile.type === 'application/pdf') {
+        if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+        setPdfUrl(URL.createObjectURL(selectedFile));
+      }
     }
   };
 
@@ -120,12 +140,21 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
       setExtractedData(null);
       setFile(null);
       setPastedText('');
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl);
+        setPdfUrl(null);
+      }
       onCandidateAdded();
     } catch (err) {
       setMessage(`Approval failed: ${err}`);
     } finally {
       setIsApproving(false);
     }
+  };
+
+  const handleBack = () => {
+    setExtractedData(null);
+    setMessage('');
   };
 
   const fieldLabels: Record<string, string> = {
@@ -200,9 +229,9 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
           </div>
         )}
 
-        {/* Step 2: Review (Human-in-the-Loop) */}
+        {/* Step 2: Review (Human-in-the-Loop) — with embedded PDF viewer */}
         {extractedData && (
-          <div className="review-area">
+          <div className={`review-area ${pdfUrl ? 'has-pdf' : ''}`}>
             <div className="review-header">
               <h3>🔍 Review Extracted Data</h3>
               <p className="review-hint">Edit any field before approving. All data is AI-extracted — please verify.</p>
@@ -215,30 +244,50 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
               </div>
             )}
 
-            <div className="review-grid">
-              {Object.entries(fieldLabels).map(([key, label]) => (
-                <div key={key} className={`form-group ${key === 'project_summary' || key === 'previous_jobs' ? 'full-width' : ''}`}>
-                  <label className="form-label">{label}</label>
-                  {key === 'project_summary' || key === 'previous_jobs' ? (
-                    <textarea
-                      className="form-textarea"
-                      value={extractedData[key] || ''}
-                      onChange={e => handleFieldChange(key, e.target.value)}
-                      rows={3}
-                    />
-                  ) : (
-                    <input
-                      className="form-input"
-                      value={extractedData[key] || ''}
-                      onChange={e => handleFieldChange(key, e.target.value)}
-                    />
-                  )}
+            <div className={`review-split-layout ${pdfUrl ? 'split' : 'no-pdf'}`}>
+              {/* Left: PDF Viewer */}
+              {pdfUrl && (
+                <div className="pdf-viewer-panel">
+                  <div className="pdf-viewer-header">
+                    <span className="pdf-viewer-title">📎 Original CV</span>
+                    <span className="pdf-viewer-filename">{file?.name}</span>
+                  </div>
+                  <iframe
+                    src={pdfUrl}
+                    className="pdf-iframe"
+                    title="CV PDF Preview"
+                  />
                 </div>
-              ))}
+              )}
+
+              {/* Right: Editable form */}
+              <div className="review-form-panel">
+                <div className="review-grid">
+                  {Object.entries(fieldLabels).map(([key, label]) => (
+                    <div key={key} className={`form-group ${key === 'project_summary' || key === 'previous_jobs' ? 'full-width' : ''}`}>
+                      <label className="form-label">{label}</label>
+                      {key === 'project_summary' || key === 'previous_jobs' ? (
+                        <textarea
+                          className="form-textarea"
+                          value={extractedData[key] || ''}
+                          onChange={e => handleFieldChange(key, e.target.value)}
+                          rows={3}
+                        />
+                      ) : (
+                        <input
+                          className="form-input"
+                          value={extractedData[key] || ''}
+                          onChange={e => handleFieldChange(key, e.target.value)}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="review-actions">
-              <button className="btn btn-secondary" onClick={() => { setExtractedData(null); setMessage(''); }}>
+              <button className="btn btn-secondary" onClick={handleBack}>
                 ← Back
               </button>
               <button className="btn btn-success" onClick={handleApprove} disabled={isApproving}>

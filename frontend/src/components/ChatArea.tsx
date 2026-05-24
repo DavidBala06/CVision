@@ -7,9 +7,10 @@ interface ChatAreaProps {
   messages: ChatMessage[];
   onSendMessage: (query: string) => void;
   isLoading: boolean;
+  onDraftEmail?: (name: string) => void;
 }
 
-const ChatArea: React.FC<ChatAreaProps> = ({ messages, onSendMessage, isLoading }) => {
+const ChatArea: React.FC<ChatAreaProps> = ({ messages, onSendMessage, isLoading, onDraftEmail }) => {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -35,7 +36,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ messages, onSendMessage, isLoading 
               {msg.candidates && msg.candidates.length > 0 && (
                 <div className="inline-candidates-list">
                   {msg.candidates.map((cand, idx) => (
-                    <CandidateCard key={idx} {...cand} />
+                    <CandidateCard key={idx} {...cand} onDraftEmail={onDraftEmail} />
                   ))}
                 </div>
               )}
