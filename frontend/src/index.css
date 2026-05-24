@@ -73,8 +73,8 @@ body {
    APP LAYOUT
    ═══════════════════════════════════════════ */
 .app-container {
-  display: grid;
-  grid-template-columns: 260px 1fr;
+  display: flex;
+  flex-direction: column;
   height: 100vh;
   width: 100vw;
 }
@@ -88,21 +88,69 @@ body {
 }
 
 /* ═══════════════════════════════════════════
-   TAB HEADER
+   TOP NAVBAR (sole navigation)
    ═══════════════════════════════════════════ */
 .tab-header {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 0 1.5rem;
+  gap: 0;
+  padding: 0 1.25rem;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-color);
-  min-height: 48px;
+  min-height: 54px;
   overflow-x: auto;
 }
 
+/* Brand / logo section */
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-right: 1.5rem;
+  margin-right: 0.5rem;
+  border-right: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.brand-icon {
+  font-size: 1.3rem;
+  background: var(--accent-primary-glow);
+  padding: 0.35rem;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.brand-name {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--accent-secondary);
+  letter-spacing: -0.3px;
+}
+
+.brand-sub {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Tabs container */
+.navbar-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+}
+
 .tab-btn {
-  padding: 0.75rem 1.25rem;
+  padding: 0.85rem 1.15rem;
   background: transparent;
   border: none;
   color: var(--text-muted);
@@ -114,6 +162,14 @@ body {
   position: relative;
   white-space: nowrap;
   letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.tab-btn .tab-icon {
+  font-size: 0.85rem;
 }
 
 .tab-btn:hover {
@@ -123,6 +179,7 @@ body {
 
 .tab-btn.active {
   color: var(--accent-secondary);
+  background: rgba(99, 102, 241, 0.06);
 }
 
 .tab-btn.active::after {
@@ -134,6 +191,37 @@ body {
   height: 2px;
   background: var(--accent-primary);
   border-radius: 2px 2px 0 0;
+}
+
+/* Right side metadata */
+.navbar-meta {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding-left: 1rem;
+}
+
+.pool-count-badge {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.3rem 0.75rem;
+  background: var(--accent-primary-glow);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-full);
+}
+
+.pool-count-num {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--accent-secondary);
+}
+
+.pool-count-label {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
 }
 
 .tab-content {

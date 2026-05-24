@@ -202,9 +202,15 @@
   padding-top: 1rem;
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .linkedin-btn {
   font-size: 0.75rem;
   text-decoration: none;
+}
+
+.draft-email-btn {
+  font-size: 0.75rem;
 }

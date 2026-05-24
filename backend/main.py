@@ -20,7 +20,7 @@ from ai.RAG_engine import build_vector_database, create_retriever_chain
 from ai.cv_ingestion import extract_from_text, check_duplicate, add_candidate_to_csv, update_candidate_in_csv
 from ai.pool_maintenance import get_stale_candidates, intelligent_merge, bulk_refresh_candidates, get_pool_stats
 from ai.outreach_agent import generate_email_draft, generate_followup_draft, update_outreach_status, get_outreach_dashboard
-from ai.linkedin_sourcing import search_by_role, search_by_profile
+from ai.github_sourcing import search_by_criteria, search_by_profile
 from ai.guardrails import sanitize_input
 from scraper.parser import extract_text_from_pdf
 
@@ -70,9 +70,9 @@ class OutreachStatusUpdate(BaseModel):
     candidate_name: str
     status: str
 
-class LinkedInSearchRequest(BaseModel):
+class GitHubSearchRequest(BaseModel):
     query: str
-    search_type: str  # "role" or "profile"
+    search_type: str  # "criteria" or "profile"
 
 class ManualUpdateRequest(BaseModel):
     candidate_name: str
@@ -113,9 +113,41 @@ async def match_candidates(request: MatchRequest):
         print(f"[API] Found {len(candidates) if isinstance(candidates, list) else 0} matches")
         
         if not candidates:
-            return []
+            candidates = []
         if isinstance(candidates, dict):
             candidates = [candidates]
+        
+        # Guarantee minimum 3 results — pad from CSV if LLM returned fewer
+        if len(candidates) < 3 and CSV_PATH.exists():
+            existing_names = {c.get("name", "").lower() for c in candidates}
+            with open(CSV_PATH, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if len(candidates) >= 3:
+                        break
+                    if row.get("name", "").lower() in existing_names:
+                        continue
+                    # Build a filler candidate card
+                    name = row.get("name", "Unknown")
+                    name_parts = name.split()
+                    initials = "".join(p[0].upper() for p in name_parts[:2]) if name_parts else "??"
+                    techs = [t.strip() for t in row.get("technologies", "").split(",") if t.strip()][:3]
+                    candidates.append({
+                        "initials": initials,
+                        "name": name,
+                        "role": row.get("current_role") or row.get("seniority", "Candidate"),
+                        "matchScore": 40,
+                        "matchRank": "Fair",
+                        "skillsScore": 35,
+                        "expScore": 40,
+                        "locationScore": 30,
+                        "tags": techs if techs else ["—"],
+                        "langs": row.get("languages", ""),
+                        "linkedin_url": row.get("linkedin_url", ""),
+                        "citation": f"Padded from pool: {row.get('project_summary', '')[:80]}",
+                        "colorTheme": "blue",
+                    })
+                    existing_names.add(row.get("name", "").lower())
         
         return candidates
     except Exception as e:
@@ -279,21 +311,21 @@ async def set_outreach_status(request: OutreachStatusUpdate):
         raise HTTPException(status_code=400, detail="Failed to update status.")
     return {"success": True, "message": f"Status updated to '{request.status}'"}
 
-# ENDPOINT: POST /api/linkedin-search -LinkedIn sourcing
+# ENDPOINT: POST /api/github-search — GitHub sourcing
 
-@app.post("/api/linkedin-search")
-async def linkedin_search(request: LinkedInSearchRequest):
-    # Generate LinkedIn search strategy (by role or by profile).
+@app.post("/api/github-search")
+async def github_search(request: GitHubSearchRequest):
+    # Search GitHub for developer candidates.
     clean_query, is_safe = sanitize_input(request.query)
     if not is_safe:
         raise HTTPException(status_code=400, detail="Query contains disallowed patterns.")
     
-    if request.search_type == "role":
-        result = search_by_role(clean_query)
+    if request.search_type == "criteria":
+        result = search_by_criteria(clean_query)
     elif request.search_type == "profile":
         result = search_by_profile(clean_query)
     else:
-        raise HTTPException(status_code=400, detail="search_type must be 'role' or 'profile'")
+        raise HTTPException(status_code=400, detail="search_type must be 'criteria' or 'profile'")
     
     return result
 

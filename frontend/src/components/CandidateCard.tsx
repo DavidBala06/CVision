@@ -2,7 +2,11 @@ import React from 'react';
 import './CandidateCard.css';
 import type { Candidate } from '../App';
 
-const CandidateCard: React.FC<Candidate> = ({
+interface CandidateCardProps extends Candidate {
+  onDraftEmail?: (name: string) => void;
+}
+
+const CandidateCard: React.FC<CandidateCardProps> = ({
   initials,
   name,
   role,
@@ -16,6 +20,7 @@ const CandidateCard: React.FC<Candidate> = ({
   colorTheme,
   linkedin_url,
   citation,
+  onDraftEmail,
 }) => {
   return (
     <div className={`candidate-card theme-${colorTheme || 'blue'}`}>
@@ -66,13 +71,21 @@ const CandidateCard: React.FC<Candidate> = ({
         </div>
       </div>
       
-      {linkedin_url && (
-        <div className="card-footer">
+      <div className="card-footer">
+        {onDraftEmail && (
+          <button
+            className="btn btn-sm btn-primary draft-email-btn"
+            onClick={() => onDraftEmail(name)}
+          >
+            ✉️ Draft Email
+          </button>
+        )}
+        {linkedin_url && (
           <a href={linkedin_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm linkedin-btn">
             🔗 View LinkedIn
           </a>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

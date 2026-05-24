@@ -127,7 +127,8 @@ CRITICAL RULES — STRICT GROUNDING:
 5. The LinkedIn URL must come from the context data — do NOT fabricate URLs.
 
 INSTRUCTIONS:
-Identify up to 3 best matching candidates from the context.
+You MUST return EXACTLY 3 candidates from the context — no more, no fewer.
+Even if match quality varies, always return 3. Rank them from best to worst match.
 Respond ONLY with a valid JSON array. No text outside the JSON.
 
 Each object must have these exact keys:
@@ -153,7 +154,7 @@ Candidate profiles from Talent Pool CSV:
 {context}""")
     ])
 
-    retriever = vector_db.as_retriever(search_kwargs={"k": 5})
+    retriever = vector_db.as_retriever(search_kwargs={"k": 7})
 
     def format_docs(docs):
         return "\n\n".join(
