@@ -1,40 +1,67 @@
 """
-Pool Maintenance Module 
+Pool Maintenance — Module 2 (talent pool freshness).
 
-Handles:
-Bulk refresh — update batch of candidates
-Auto-update — flag candidates with last_updated > 3 months
-Manual update — detect existing candidate, intelligent merge
+CSV is the only source of truth in this build (no Obsidian vault). The
+"bulk refresh" therefore covers two practical needs:
+
+  1. Stale detection — flag candidates whose last_updated_at is older than
+     a threshold so HR knows what to review.
+  2. Self-refresh — re-normalize the existing CSV row (dedup + sort
+     technologies, lowercase, canonicalize seniority) and bump
+     last_updated_at. This is honest about what we *can* do without a live
+     external feed.
+  3. Manual merge — Module 2c: HR pastes fresh CV / LinkedIn text into a
+     form, the LLM extracts fields, and `intelligent_merge` reconciles
+     them with the existing row.
+
+A real "auto-pull from LinkedIn" would require either the official LinkedIn
+API (paid + GDPR contract) or scraping (against TOS). Neither is implemented
+on purpose — see README.
 """
-import os
+from __future__ import annotations
+
 import csv
-from pathlib import Path
+import logging
+import os
 from datetime import datetime, timedelta
+from pathlib import Path
+
 from dotenv import load_dotenv
-
-from langchain_groq import ChatGroq
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 
-from ai.guardrails import get_system_guardrail_prompt
+from ai.guardrails import get_system_guardrail_prompt, validate_json_output
+from ai.llm_provider import get_chat_llm
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CSV_PATH = Path(os.getenv("CSV_PATH", str(BASE_DIR / "data" / "talent_pool.csv")))
 
+# Canonical seniority labels. The CSV uses a mix of "senior", "mid_to_senior",
+# "mid", "junior", "intern" — we keep them as-is on read but normalize
+# *during* refresh so HR-typed values stay aligned with what the UI filters on.
+_SENIORITY_CANON = {
+    "intern": "intern",
+    "junior": "junior",
+    "mid": "mid",
+    "middle": "mid",
+    "mid_to_senior": "mid_to_senior",
+    "midsenior": "mid_to_senior",
+    "senior": "senior",
+    "lead": "lead",
+    "principal": "lead",
+    "staff": "lead",
+}
+
 
 def get_llm():
-    return ChatGroq(
-        model="llama-3.3-70b-versatile",
-        temperature=0.01,
-        max_tokens=2048,
-        api_key=os.getenv("GROQ_API_KEY", ""),
-    )
+    return get_chat_llm(temperature=0.01, max_tokens=2048)
 
 
 def get_stale_candidates(months_threshold: int = 3) -> list[dict]:
-    #Identify candidates needing refresh (last_updated > threshold)
+    """Identify candidates needing refresh (last_updated > threshold)."""
     if not CSV_PATH.exists():
         return []
 
@@ -60,7 +87,7 @@ def get_stale_candidates(months_threshold: int = 3) -> list[dict]:
 
 
 def intelligent_merge(existing_data: dict, new_data: dict) -> dict:
-    # AI-powered intelligent merge of old and new candidate data.
+    """AI-powered merge of an existing CSV row with newly-pulled data."""
     llm = get_llm()
     parser = JsonOutputParser()
 
@@ -72,7 +99,7 @@ MERGE RULES:
 1. New field has data, old empty → use new.
 2. Both have data → prefer new (more recent).
 3. Old has data, new empty → KEEP old.
-4. For 'technologies', merge both lists (union).
+4. For 'technologies', merge both lists (union, deduplicated, lowercase).
 5. For 'previous_jobs', combine without duplicating.
 6. For 'years_of_experience', use the higher value.
 
@@ -91,9 +118,12 @@ linkedin_url, github_url, email.
             "new_data": str(new_data),
             "format_instructions": parser.get_format_instructions()
         })
-        return result if isinstance(result, dict) else existing_data
+        validated, ok = validate_json_output(result)
+        if not ok or not isinstance(validated, dict):
+            raise ValueError("LLM returned invalid merge")
+        return validated
     except Exception as e:
-        print(f"Merge error: {e}")
+        logger.warning("Merge fell back to deterministic merge: %s", e)
         merged = dict(existing_data)
         for key, value in new_data.items():
             if value and key in merged:
@@ -101,45 +131,104 @@ linkedin_url, github_url, email.
         return merged
 
 
-def bulk_refresh_candidates(candidate_names: list[str]) -> dict:
-    # Mark selected candidates as refreshed (update timestamp).
-    if not CSV_PATH.exists():
-        return {"error": "CSV not found", "refreshed": 0}
+# ---------------------------------------------------------------------------
+# CSV-only self-refresh — see module docstring.
+# ---------------------------------------------------------------------------
 
-    rows = []
-    refreshed = []
+def _normalize_tech(raw: str) -> str:
+    """Lowercase, dedup, sort the comma-separated technologies field."""
+    if not raw:
+        return ""
+    parts = [p.strip().lower() for p in raw.split(",") if p.strip()]
+    return ", ".join(sorted(set(parts)))
+
+
+def _normalize_seniority(raw: str) -> str:
+    """Map common variants to the canonical label set."""
+    if not raw:
+        return raw
+    key = raw.strip().lower().replace(" ", "_").replace("-", "_")
+    return _SENIORITY_CANON.get(key, raw.strip().lower())
+
+
+def _self_refresh_row(row: dict) -> tuple[dict, list[str]]:
+    """Return (new_row, list_of_changed_fields) — no external lookups."""
+    changes = []
+    new_row = dict(row)
+
+    new_tech = _normalize_tech(row.get("technologies", ""))
+    if new_tech and new_tech != row.get("technologies", ""):
+        new_row["technologies"] = new_tech
+        changes.append("technologies")
+
+    new_sen = _normalize_seniority(row.get("seniority", ""))
+    if new_sen and new_sen != row.get("seniority", ""):
+        new_row["seniority"] = new_sen
+        changes.append("seniority")
+
+    return new_row, changes
+
+
+def bulk_refresh_candidates(candidate_names: list[str]) -> dict:
+    """Refresh the listed candidates against the local CSV (no external sources).
+
+    For each selected row we:
+      • normalize the `technologies` field (dedup, sort, lowercase)
+      • normalize `seniority` to the canonical label
+      • bump `last_updated_at` to today
+
+    Real LinkedIn re-pulling is out of scope (no API integration); use the
+    /api/refresh/merge endpoint to manually feed new data into the merge flow.
+    """
+    if not CSV_PATH.exists():
+        return {"error": "CSV not found", "refreshed_count": 0}
+
+    rows: list[dict] = []
+    refreshed_with_changes: list[dict] = []
+    timestamp_only: list[str] = []
+    target_set = {n.strip().lower() for n in candidate_names}
 
     with open(CSV_PATH, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         fieldnames = reader.fieldnames
         for row in reader:
-            if row.get("name", "").strip() in candidate_names:
-                row["last_updated_at"] = datetime.now().strftime("%Y-%m-%d")
-                refreshed.append(row["name"])
+            if row.get("name", "").strip().lower() in target_set:
+                new_row, changes = _self_refresh_row(row)
+                if changes:
+                    refreshed_with_changes.append({"name": new_row["name"], "changed_fields": changes})
+                else:
+                    timestamp_only.append(new_row["name"])
+                new_row["last_updated_at"] = datetime.now().strftime("%Y-%m-%d")
+                row = new_row
             rows.append(row)
 
-    if refreshed:
+    if refreshed_with_changes or timestamp_only:
         with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(rows)
 
     return {
-        "refreshed_count": len(refreshed),
-        "refreshed_names": refreshed,
-        "total_in_pool": len(rows)
+        "refreshed_count": len(refreshed_with_changes) + len(timestamp_only),
+        "normalized": refreshed_with_changes,
+        "timestamp_only": timestamp_only,
+        "note": (
+            "CSV-only self-refresh: technologies & seniority normalized, "
+            "last_updated_at bumped. For new external data, use /api/refresh/merge."
+        ),
+        "total_in_pool": len(rows),
     }
 
 
 def get_pool_stats() -> dict:
-    #Get talent pool statistics for metrics dashboard.
+    """Talent pool statistics for the metrics dashboard."""
     if not CSV_PATH.exists():
         return {"total": 0}
 
     total = active = pending = stale_count = 0
     cutoff = datetime.now() - timedelta(days=180)
-    seniority_dist = {}
-    location_dist = {}
+    seniority_dist: dict = {}
+    location_dist: dict = {}
 
     with open(CSV_PATH, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)

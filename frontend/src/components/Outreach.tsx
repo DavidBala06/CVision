@@ -131,6 +131,11 @@ const Outreach: React.FC<OutreachProps> = ({ candidates }) => {
         </div>
       </div>
 
+      <div className="security-banner">
+        🔒 <strong>Drafts only — never auto-sent.</strong> The agent generates email drafts for your review.
+        You must copy/send manually from your own mail client. Every status change is recorded in the audit log.
+      </div>
+
       <div className="outreach-content">
         {activeSubTab === 'compose' && (
           <div className="compose-view">

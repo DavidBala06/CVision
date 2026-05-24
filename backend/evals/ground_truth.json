@@ -1,0 +1,101 @@
+{
+  "_meta": {
+    "description": "Ground-truth evaluation dataset for the AI Talent Pool Manager shortlisting engine.",
+    "format_version": "1.0",
+    "schema": {
+      "id": "stable identifier for the test case",
+      "query": "HR-style natural language query",
+      "expected_candidates": "list of candidate names that SHOULD appear in the top-k results",
+      "must_not_match": "candidates that the system should NEVER return for this query (negative samples)",
+      "rationale": "why these are the expected matches — for human reviewers"
+    },
+    "k_default": 3,
+    "notes": "Expected candidates come from talent_pool.csv. Update when the pool composition changes."
+  },
+  "cases": [
+    {
+      "id": "py_ml_cluj",
+      "query": "Senior Python ML engineer based in Cluj-Napoca",
+      "expected_candidates": ["Alex R.", "David Bala"],
+      "must_not_match": ["Alex Morega", "Roland Leth"],
+      "rationale": "Alex R. is Senior AI/ML Python in Brasov-adjacent; David Bala has the broadest Python ML stack in Cluj. Roland Leth is iOS, Alex Morega is infra."
+    },
+    {
+      "id": "react_typescript_frontend",
+      "query": "Frontend developer with React and TypeScript experience",
+      "expected_candidates": ["Vlad Frangu", "Catalin Pit", "Antim Prisacaru"],
+      "must_not_match": ["Florin C", "Adrian Roman"],
+      "rationale": "Vlad Frangu is full-stack React/TS, Catalin Pit explicitly has TS/Astro, Antim Prisacaru is Angular/TS. C++ candidates excluded."
+    },
+    {
+      "id": "java_backend_senior",
+      "query": "Senior Java backend engineer with Spring and Hibernate",
+      "expected_candidates": ["Vlad Mihalcea"],
+      "must_not_match": ["David Saltares", "Mihai Bazon"],
+      "rationale": "Vlad Mihalcea is THE Java/Spring/Hibernate expert in pool. David Saltares is C# gamedev, Mihai Bazon is Lisp/JS."
+    },
+    {
+      "id": "go_backend",
+      "query": "Backend developer with Go experience",
+      "expected_candidates": ["Adrian-George Bostan", "Valer Cara"],
+      "must_not_match": ["Alin Capitanescu"],
+      "rationale": "Both have go in their stack. Alin is HTML/CSS/JS, not Go."
+    },
+    {
+      "id": "ios_mobile",
+      "query": "iOS mobile developer with Swift",
+      "expected_candidates": ["Roland Leth", "The low-tech guys"],
+      "must_not_match": ["Vlad Mihalcea", "Adrian Roman"],
+      "rationale": "Roland Leth explicitly iOS/Swift, The low-tech guys = swift/macos. Java and C++ excluded."
+    },
+    {
+      "id": "devops_infra",
+      "query": "DevOps / infrastructure engineer with cloud experience",
+      "expected_candidates": ["Alex Morega"],
+      "must_not_match": ["David Bala", "Lara (L.U.) Pat"],
+      "rationale": "Alex Morega: opslib, cloudflare, infrastructure. David is junior AI, Lara is legal/non-tech."
+    },
+    {
+      "id": "junior_intern",
+      "query": "Junior or intern level developer for an entry position",
+      "expected_candidates": ["David Bala"],
+      "must_not_match": ["Vlad Mihalcea", "Mihai Bazon", "Alex Morega"],
+      "rationale": "David Bala is the only intern-seniority candidate in pool."
+    },
+    {
+      "id": "php_web",
+      "query": "PHP web developer",
+      "expected_candidates": ["Eusebiu Cretu", "Elian Doran", "Răzvan Stătescu"],
+      "must_not_match": ["Adrian Roman", "Vlad Mihalcea"],
+      "rationale": "Three candidates have PHP explicitly listed. C++ and Java excluded."
+    },
+    {
+      "id": "gamedev_csharp",
+      "query": "Game developer with C# or game engine experience",
+      "expected_candidates": ["David Saltares", "Dan Patrascu-Baba"],
+      "must_not_match": ["David Bala", "Lara (L.U.) Pat"],
+      "rationale": "David Saltares: godot/gamedev/c#. Dan Patrascu-Baba: dotnet/c#."
+    },
+    {
+      "id": "data_science_python",
+      "query": "Data scientist with Python and ML frameworks like PyTorch or TensorFlow",
+      "expected_candidates": ["David Bala", "Alex R.", "Richard Vencu"],
+      "must_not_match": ["Roland Leth", "Catalin Pit"],
+      "rationale": "David Bala explicit pytorch/tensorflow/scikit. Alex R is ML. Richard Vencu = LAION AI + jupyter/python."
+    },
+    {
+      "id": "business_analyst",
+      "query": "Business analyst with cybersecurity or risk experience",
+      "expected_candidates": ["Claudia Barastean"],
+      "must_not_match": ["David Bala", "Vlad Frangu"],
+      "rationale": "Claudia is Business Analyst Cyber Risk Quantification — only non-dev candidate matching this brief."
+    },
+    {
+      "id": "fullstack_js",
+      "query": "Full-stack JavaScript developer with Node.js",
+      "expected_candidates": ["Vlad Frangu", "Florin Pop"],
+      "must_not_match": ["Adrian Roman", "Florin C"],
+      "rationale": "Both are full-stack JS. Adrian and Florin C are C++ heavy."
+    }
+  ]
+}

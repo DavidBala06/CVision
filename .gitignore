@@ -1,20 +1,36 @@
-/venv
-.env
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-node_modules
-obsidian
+.venv/
+venv/
+.pytest_cache/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Secrets (but keep the template committed)
+.env
+
+# Editors / OS
 .DS_Store
-.idea
-.vscode
-obsidian_db
-chroma_storage
-.env.example
-challenge_text.txt
-Linnify challenge - AI Talent Pool Manager.pdf
+.idea/
+.vscode/
+
+# Local data the user generates
+backend/data/audit.jsonl
+backend/data/uploads/
+backend/evals/last_run.json
+
+# Vector store (regenerated on demand)
+backend/chroma_csv_storage/
+chroma_storage/
 chroma/
-bin/
 *.bin
 chroma.sqlite3
+
+# Misc local artifacts from the original repo
+challenge_text.txt
+Linnify challenge - AI Talent Pool Manager.pdf

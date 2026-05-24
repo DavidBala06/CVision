@@ -1,17 +1,19 @@
-from langchain_community.document_loaders import PyPDFLoader
+"""PDF text extraction helper for CV uploads."""
+import logging
 import warnings
+
+from langchain_community.document_loaders import PyPDFLoader
+
 warnings.filterwarnings("ignore", category=UserWarning, module="PyPDFLoader")
+logger = logging.getLogger(__name__)
+
 
 def extract_text_from_pdf(file_path: str) -> str:
-    # Folosim PyPDFLoader pentru a extrage textul din PDF
+    """Extract the full text content from a PDF using PyPDFLoader."""
     try:
         loader = PyPDFLoader(file_path)
         pages = loader.load()
-        
-        # Combinăm textul de pe toate paginile
-        full_text = "\n".join([page.page_content for page in pages])
-        return full_text
-    
+        return "\n".join(page.page_content for page in pages)
     except Exception as e:
-        print(f"Nu am putut citi PDF-ul {file_path}: {e}")
+        logger.warning("Failed to read PDF %s: %s", file_path, e)
         return ""

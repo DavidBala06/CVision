@@ -8,6 +8,12 @@ import LinkedInSearch from './components/LinkedInSearch';
 import Metrics from './components/Metrics';
 import './index.css';
 
+export interface SkillBreakdown {
+  skill: string;
+  match: 'exact' | 'similar' | 'none';
+  value: number;
+}
+
 export interface Candidate {
   initials: string;
   name: string;
@@ -16,12 +22,17 @@ export interface Candidate {
   matchRank: string;
   skillsScore: number;
   expScore: number;
+  industryScore?: number;
   locationScore: number;
+  statusScore?: number;
   tags: string[];
   langs: string;
   linkedin_url?: string;
   citation?: string;
   colorTheme: 'purple' | 'green' | 'blue';
+  skill_breakdown?: SkillBreakdown[];
+  weights?: Record<string, number>;
+  requirements_used?: Record<string, any>;
 }
 
 export interface ChatMessage {

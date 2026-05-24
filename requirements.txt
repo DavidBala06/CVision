@@ -6,6 +6,8 @@ langchain-community>=0.2.0,<1.0.0
 langchain-text-splitters>=0.2.0,<1.0.0
 langchain-huggingface>=0.0.3
 langchain-groq>=0.0.1
+# Optional providers — install only the one you use (LLM_PROVIDER env var):
+# langchain-mistralai>=0.1.0   # for LLM_PROVIDER=mistral
 huggingface-hub>=0.23.0
 sentence-transformers>=2.7.0
 chromadb>=0.5.0
@@ -14,3 +16,6 @@ pyyaml>=6.0
 python-dotenv>=1.0.0
 requests>=2.31.0
 python-multipart>=0.0.6
+
+# Dev / tests
+pytest>=8.0.0

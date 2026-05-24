@@ -16,6 +16,18 @@
   padding: 1.5rem;
 }
 
+.security-banner {
+  margin: 0 1.5rem;
+  margin-top: 0.75rem;
+  padding: 0.7rem 1rem;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
 /* Compose view */
 .compose-view {
   display: flex;

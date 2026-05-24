@@ -11,11 +11,11 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
-from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
 from ai.guardrails import get_system_guardrail_prompt
+from ai.llm_provider import get_chat_llm
 
 load_dotenv()
 
@@ -24,12 +24,8 @@ CSV_PATH = Path(os.getenv("CSV_PATH", str(BASE_DIR / "data" / "talent_pool.csv")
 
 
 def get_llm():
-    return ChatGroq(
-        model="llama-3.3-70b-versatile",
-        temperature=0.4,  # A bit more creative for emails
-        max_tokens=1024,
-        api_key=os.getenv("GROQ_API_KEY", ""),
-    )
+    # Slight temperature bump — outreach emails benefit from more variety than extraction.
+    return get_chat_llm(temperature=0.4, max_tokens=1024)
 
 
 def generate_email_draft(candidate: dict, job_description: str) -> str:
@@ -40,7 +36,9 @@ def generate_email_draft(candidate: dict, job_description: str) -> str:
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", get_system_guardrail_prompt() + """
-You are a professional HR recruiter writing personalized outreach emails.
+You are a professional HR recruiter writing personalized outreach DRAFTS for human review.
+
+CRITICAL: This is a DRAFT. The HR user reviews and sends it manually. The system NEVER sends emails autonomously.
 
 RULES:
 1. Be warm, professional, and concise (under 200 words).

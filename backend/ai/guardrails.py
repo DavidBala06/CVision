@@ -30,29 +30,50 @@ INJECTION_PATTERNS = [
 ]
 
 
+def _normalize_for_injection_check(text: str) -> str:
+    """Collapse evasion tricks (zero-width chars, spaced-out keywords, leetspeak)
+    before pattern matching. We only use the normalized form for *detection*;
+    the original cleaned text is what gets passed downstream so legitimate
+    queries with odd formatting still work."""
+    # Strip zero-width / formatting characters used to break tokenization
+    cleaned = re.sub(r"[​-‏‪-‮﻿]", "", text)
+
+    # Detect spaced-out keyword sequences ("i g n o r e") — at least 4 single
+    # characters separated by single spaces. We squish them but leave normal
+    # prose alone (which has multi-letter words between spaces).
+    def _squish(match):
+        return match.group(0).replace(" ", "")
+    cleaned = re.sub(r"(?:\b\w\s){3,}\w\b", _squish, cleaned)
+
+    # Common homoglyph substitutions used to bypass keyword filters
+    homoglyph = str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "@": "a", "$": "s"})
+    return cleaned.translate(homoglyph).lower().strip()
+
+
 def sanitize_input(user_input: str) -> tuple[str, bool]:
-    
-    #Sanitize user input against prompt injection.
-    #Returns:
-        #(sanitized_text, is_safe) — if is_safe is False, reject the query
-    
+    """Sanitize user input against prompt injection.
+
+    Returns (sanitized_text, is_safe). If is_safe is False, reject the query.
+    """
     if not isinstance(user_input, str):
         return "", False
-    
-    # Check for injection patterns
+
+    # Check both the literal and the de-obfuscated form so simple evasions
+    # like "ign0re previous instructions" or "i g n o r e" still trip the filter.
     lower_input = user_input.lower().strip()
+    normalized = _normalize_for_injection_check(user_input)
     for pattern in INJECTION_PATTERNS:
-        if re.search(pattern, lower_input, re.IGNORECASE):
+        if re.search(pattern, lower_input, re.IGNORECASE) or re.search(pattern, normalized, re.IGNORECASE):
             return "", False
-    
+
     # Remove any attempt to inject system-level tags
     cleaned = re.sub(r"<\s*/?\s*(?:system|assistant|user)\s*>", "", user_input, flags=re.IGNORECASE)
-    
+
     # Limit input length (prevent token flooding)
     max_length = 2000
     if len(cleaned) > max_length:
         cleaned = cleaned[:max_length]
-    
+
     return cleaned.strip(), True
 
 

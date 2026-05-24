@@ -208,3 +208,39 @@
   font-size: 0.75rem;
   text-decoration: none;
 }
+/* Score breakdown panel — deterministic weighted scorer */
+.breakdown-toggle {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.35rem 0.6rem;
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-top: 0.4rem;
+}
+.breakdown-toggle:hover { background: rgba(255, 255, 255, 0.05); color: var(--text-primary); }
+
+.breakdown-panel {
+  margin-top: 0.6rem;
+  padding: 0.7rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.breakdown-section ul { list-style: none; padding: 0; margin: 0.3rem 0 0; color: var(--text-secondary); }
+.breakdown-section ul li { padding: 0.15rem 0; }
+
+.breakdown-table { width: 100%; margin-top: 0.3rem; font-size: 0.75rem; border-collapse: collapse; }
+.breakdown-table td { padding: 0.2rem 0.4rem; border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
+.breakdown-table .match-exact   { color: var(--accent-success); font-weight: 600; }
+.breakdown-table .match-similar { color: var(--accent-warning); font-weight: 600; }
+.breakdown-table .match-none    { color: var(--accent-danger);  font-weight: 600; }
+.breakdown-total td { padding-top: 0.4rem; border-top: 1px solid var(--border-color); border-bottom: none; }
+
+.sub-scores .score-item em { font-style: normal; color: var(--text-muted); font-size: 0.65rem; }

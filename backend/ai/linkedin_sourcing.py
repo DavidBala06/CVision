@@ -11,22 +11,17 @@ Instead, we generate optimized search queries/URLs for the HR user.
 import os
 from dotenv import load_dotenv
 
-from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 
 from ai.guardrails import get_system_guardrail_prompt
+from ai.llm_provider import get_chat_llm
 
 load_dotenv()
 
 
 def get_llm():
-    return ChatGroq(
-        model="llama-3.3-70b-versatile",
-        temperature=0.3,
-        max_tokens=1024,
-        api_key=os.getenv("GROQ_API_KEY", ""),
-    )
+    return get_chat_llm(temperature=0.3, max_tokens=1024)
 
 
 def search_by_role(job_description: str) -> dict:
