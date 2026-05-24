@@ -239,8 +239,8 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
 
             {isDuplicate && (
               <div className="duplicate-warning">
-                ⚠️ <strong>Possible duplicate!</strong> A candidate with similar info already exists in the pool.
-                You can still add as new or go back to update the existing record.
+                ⚠️ <strong>Duplicate candidate detected!</strong> 
+                Clicking 'Approve & Merge' will intelligently blend this new data into their existing profile.
               </div>
             )}
 
@@ -291,7 +291,9 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
                 ← Back
               </button>
               <button className="btn btn-success" onClick={handleApprove} disabled={isApproving}>
-                {isApproving ? 'Adding...' : '✅ Approve & Add to Pool'}
+                {isApproving 
+                  ? (isDuplicate ? 'Merging...' : 'Adding...') 
+                  : (isDuplicate ? '🔄 Approve & Merge' : '✅ Approve & Add to Pool')}
               </button>
             </div>
           </div>

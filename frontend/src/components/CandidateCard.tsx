@@ -20,7 +20,7 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
   tags,
   langs,
   colorTheme,
-  linkedin_url,
+  github_url,
   citation,
   onDraftEmail,
   skill_breakdown,
@@ -73,36 +73,6 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
       </div>
 
       <div className="card-body">
-        {citation && (
-          <div className="citation-box">
-            <span className="citation-icon">💡</span>
-            <p className="citation-text">"{citation}"</p>
-          </div>
-        )}
-
-        {/* Skill breakdown toggle */}
-        {skill_breakdown && skill_breakdown.length > 0 && (
-          <div className="skill-breakdown-section">
-            <button
-              className="breakdown-toggle"
-              onClick={() => setShowBreakdown(!showBreakdown)}
-            >
-              {showBreakdown ? '▾' : '▸'} Skill Breakdown ({skill_breakdown.filter(s => s.match !== 'none').length}/{skill_breakdown.length} matched)
-            </button>
-            {showBreakdown && (
-              <div className="breakdown-grid">
-                {skill_breakdown.map((sb, i) => (
-                  <div key={i} className={`breakdown-item match-${sb.match}`}>
-                    <span className="breakdown-skill">{sb.skill}</span>
-                    <span className={`breakdown-badge badge-${sb.match}`}>
-                      {sb.match === 'exact' ? '✓ exact' : sb.match === 'similar' ? '≈ similar' : '✗ none'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
         <div className="tags-container">
           {tags.map((tag, index) => (
@@ -123,9 +93,9 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
             ✉️ Draft Email
           </button>
         )}
-        {linkedin_url && (
-          <a href={linkedin_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm linkedin-btn">
-            🔗 View LinkedIn
+        {github_url && (
+          <a href={github_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm linkedin-btn">
+            🐙 View GitHub
           </a>
         )}
       </div>

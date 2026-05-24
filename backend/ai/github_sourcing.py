@@ -276,3 +276,35 @@ Return a JSON object with:
         "similar_profiles": profiles,
         "total_found": len(profiles),
     }
+
+
+def scrape_github_for_refresh(github_url: str) -> dict:
+    """
+    Given a GitHub URL, fetch the profile and return a dictionary mapped to
+    CSV candidate fields (technologies, project_summary, location, etc.) for merging.
+    """
+    if not github_url:
+        return {}
+        
+    username = github_url.strip().rstrip("/")
+    match = re.search(r"github\.com/([^/\s?]+)", username)
+    if match:
+        username = match.group(1)
+        
+    details = _fetch_user_details(username)
+    if not details:
+        return {}
+        
+    repos = _fetch_user_repos(username, limit=8)
+    languages = list({r["language"] for r in repos if r.get("language")})
+    
+    new_data = {}
+    if details.get("location"):
+        new_data["location"] = details["location"]
+    if languages:
+        # Map GitHub languages to 'technologies' column
+        new_data["technologies"] = ", ".join(lang.lower() for lang in languages)
+    if details.get("bio"):
+        new_data["project_summary"] = details["bio"]
+    
+    return new_data

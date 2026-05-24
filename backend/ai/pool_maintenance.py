@@ -114,6 +114,14 @@ def bulk_refresh_candidates(candidate_names: list[str]) -> dict:
         fieldnames = reader.fieldnames
         for row in reader:
             if row.get("name", "").strip() in candidate_names:
+                github_url = row.get("github_url", "")
+                if github_url:
+                    from ai.github_sourcing import scrape_github_for_refresh
+                    new_data = scrape_github_for_refresh(github_url)
+                    if new_data:
+                        print(f"[Maintenance] Merging new GitHub data for {row['name']}")
+                        row = intelligent_merge(row, new_data)
+                        
                 row["last_updated_at"] = datetime.now().strftime("%Y-%m-%d")
                 refreshed.append(row["name"])
             rows.append(row)

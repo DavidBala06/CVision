@@ -180,14 +180,31 @@ async def approve_ingestion(request: IngestApproveRequest):
     # Human-in-the-loop: approve extracted data and write to CSV.
     global db
     
-    success = add_candidate_to_csv(request.candidate_data)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to write to CSV.")
+    candidate_data = request.candidate_data
+    # Check if this is an existing candidate
+    duplicate = check_duplicate(
+        name=candidate_data.get("name", ""),
+        email=candidate_data.get("email", ""),
+        linkedin_url=candidate_data.get("linkedin_url", "")
+    )
     
-    # Rebuild vector DB after adding new candidate
+    if duplicate:
+        # Merge operation
+        merged = intelligent_merge(duplicate, candidate_data)
+        success = update_candidate_in_csv(duplicate["name"], merged)
+        action_word = "merged into"
+    else:
+        # New candidate
+        success = add_candidate_to_csv(candidate_data)
+        action_word = "added to"
+
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update talent pool CSV.")
+    
+    # Rebuild vector DB after adding/merging
     db = build_vector_database()
     
-    return {"message": f" {request.candidate_data.get('name', 'Candidate')} added to talent pool.", "success": True}
+    return {"message": f" {candidate_data.get('name', 'Candidate')} {action_word} talent pool.", "success": True}
 
 # ENDPOINT: GET /api/refresh/stale, auto-update detection
 

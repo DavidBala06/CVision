@@ -94,6 +94,11 @@ INDUSTRY_KEYWORDS = {
     "education":   ["education", "university", "school", "lingoda", "edtech", "teaching"],
     "consulting":  ["consulting", "advisory", "deloitte", "kpmg", "ey", "pwc"],
     "legal":       ["legal", "law", "compliance", "lawyer", "attorney"],
+    "business-intelligence": ["business intelligence", "bi", "data analyst", "tableau", "powerbi", "looker", "dashboard", "analytics"],
+    "data":        ["data", "analytics", "sql", "warehouse", "etl", "pipeline", "bigquery", "snowflake"],
+    "hr":          ["hr", "human resources", "recruitment", "talent", "sourcing", "people", "acquisition"],
+    "product":     ["product", "pm", "product management", "roadmap", "agile", "scrum", "owner"],
+    "marketing":   ["marketing", "seo", "campaign", "growth", "content", "social media", "ads"],
 }
 
 
@@ -105,13 +110,14 @@ _JD_PARSE_SYSTEM = get_system_guardrail_prompt() + """
 You parse a free-form job description into structured requirements for a
 scoring engine. Return a JSON object with EXACTLY these keys:
 
-  "required_skills":   list of lowercase tech/tool/skill strings (e.g. ["python", "fastapi", "aws"])
+  "required_skills":   list of lowercase tech/tool/skill/domain strings (e.g. ["python", "powerbi", "recruiting", "agile"])
                        Include only skills explicitly named or strongly implied by the JD.
                        6-12 items max — focus on the actually-required ones.
   "min_seniority":     one of: "intern", "junior", "mid", "mid_to_senior", "senior", "lead"
                        Default to "mid" if not specified.
   "industry":          one of: "fintech", "healthcare", "automotive", "ecommerce", "gaming",
-                       "ai", "saas", "media", "education", "consulting", "legal", "" (empty if none).
+                       "ai", "saas", "media", "education", "consulting", "legal",
+                       "business-intelligence", "data", "hr", "product", "marketing", "" (empty if none).
   "location":          city or country mentioned in JD (e.g. "Cluj-Napoca"). "" if none.
   "remote_ok":         true if the JD says remote/hybrid/anywhere, false otherwise.
 
@@ -359,7 +365,7 @@ def score_candidate(candidate: dict, requirements: dict) -> dict:
         "statusScore": round(status * 100),
         "tags": tags,
         "langs": candidate.get("languages", ""),
-        "linkedin_url": candidate.get("linkedin_url", ""),
+        "github_url": candidate.get("github_url", ""),
         "citation": citation,
         "colorTheme": color,
         "skill_breakdown": skill_breakdown,

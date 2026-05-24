@@ -20,7 +20,7 @@ export interface Candidate {
   statusScore?: number;
   tags: string[];
   langs: string;
-  linkedin_url?: string;
+  github_url?: string;
   citation?: string;
   colorTheme: 'purple' | 'green' | 'blue';
   skill_breakdown?: { skill: string; match: string; value: number }[];

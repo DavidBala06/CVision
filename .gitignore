@@ -18,3 +18,4 @@ chroma/
 bin/
 *.bin
 chroma.sqlite3
+cleanup.py
