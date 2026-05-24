@@ -1,101 +1,60 @@
-# CVision
-AI Recruitment Assistant that helps companies identify the best-fit candidates faster, smarter, and more accurately than ATS
+# TalentAI by CVision
 
-## Current project structure
+An intelligent Recruitment Assistant that helps HR teams identify the best-fit candidates faster, smarter, and more accurately than traditional ATS systems. Built for the Linnify AI Talent Pool Manager challenge.
 
-CVision/
-├── backend/                   # Python API + AI/RAG engine
-│   ├── ai/                    # AI logic and vector retrieval
-│   │   ├── __init__.py
-│   │   └── RAG_engine.py      # Builds embeddings, vector DB, retriever chain
-│   ├── obsidian_db/           # Local Obsidian vault copy for candidate markdown data
-│   ├── scraper/               # Data ingestion helpers
-│   │   └── parser.py          # Text extraction / parsing logic
-│   ├── main.py                # FastAPI app and /api/match endpoint
-│
-├── frontend/                  # React + TypeScript UI
-│   ├── dist/                  # Built production output
-│   ├── node_modules/
-│   ├── public/ (not present)
-│   ├── package.json
-│   ├── package-lock.json
-│   ├── tsconfig.json
-│   ├── vite.config.ts
-│   ├── src/
-│   │   ├── App.tsx
-│   │   ├── index.css
-│   │   ├── main.tsx
-│   │   ├── vite-env.d.ts
-│   │   └── components/
-│   │       ├── CandidateCard.tsx
-│   │       ├── CandidateCard.css
-│   │       ├── ChatArea.tsx
-│   │       ├── ChatArea.css
-│   │       ├── Sidebar.tsx
-│   │       └── Sidebar.css
-│
-├── obsidian_db/               # Root Obsidian data source for candidate notes
-├── requirements.txt           # Python dependencies
-├── .env                       # Environment variables for backend config
-├── .gitignore
-└── README.md                  # Project documentation
+## Core Architecture & Pivot
+Throughout the buildathon, we successfully pivoted our architecture to meet all core challenge requirements while avoiding common AI pitfalls:
+1. **Deterministic Scoring Engine:** We removed subjective "black-box" LLM candidate ranking. The LLM is now strictly used for **Job Description Parsing**. The actual ranking is done via a transparent, auditable Python weighted formula (45% Skills, 20% Seniority, 15% Industry, etc.), ensuring exact, reproducible results with zero hallucinated candidate matches.
+2. **CSV Single Source of Truth:** We dropped the experimental Obsidian/Chroma vector databases in favor of a robust, structured `talent_pool.csv` database.
+3. **GitHub Sourcing Integration:** Since LinkedIn scraping heavily restricts automated tooling, we pivoted to the **GitHub Search API** for deep developer insights.
 
-## What the project does now
+## Features
 
-- `backend/main.py` launches a FastAPI server with a `/api/match` endpoint.
-- `backend/ai/RAG_engine.py` loads Obsidian Markdown documents, builds embeddings with `HuggingFaceEmbeddings`, stores them in `ChromaDB`, and creates a retriever powered by LangChain.
-- `frontend/src/App.tsx` renders the UI, sends HR queries to the backend, and displays matching candidates.
-- Local Obsidian notes under `obsidian_db/` serve as the candidate knowledge base.
+### 1. Upload CV & Data Ingestion (Human-in-the-Loop)
+- **AI Extraction (NER):** Paste a GitHub URL or upload a CV. The AI extracts structured fields (Name, Seniority, Tech Stack, Education).
+- **Conflict Resolution:** If you upload a candidate who already exists, the system flags them as a duplicate and dynamically allows you to **Approve & Merge** the new data into their existing profile without creating duplicates.
+- **Side-by-Side Review:** An embedded PDF viewer allows HR to cross-reference the original CV before approving AI data.
 
-## Architecture overview
+### 2. Intelligent Shortlisting
+- **RAG-Powered Job Parsing:** Paste any unstructured job description. The AI extracts the required skills, industry, and seniority.
+- **Transparent Match Breakdown:** Every shortlisted candidate displays a detailed breakdown of exactly why they matched, down to which specific skills were an exact match vs a synonym match.
+- **Direct GitHub Access:** Candidate cards link directly to GitHub profiles for immediate technical evaluation.
 
-1. **Obsidian data layer**
-   - Candidate profiles are stored as Markdown files.
-   - Backend loads `.md` files from `backend/obsidian_db/` by default.
+### 3. Automated Outreach
+- **Context-Aware Email Drafting:** Select a shortlisted candidate, and the AI automatically generates a highly personalized outreach email based on both the Job Description and the candidate's specific background.
+- **Outreach Tracking:** Mark emails as sent and track the outreach funnel (Not Contacted -> Email Sent -> Replied -> No Reply).
 
-2. **Vectorization & retrieval**
-   - `RAG_engine.py` uses a text splitter and `HuggingFaceEmbeddings` to create semantic vectors.
-   - The vectors are persisted in a local ChromaDB directory.
-   - A retrieval chain answers HR queries by combining retrieved context with an LLM prompt.
+### 4. Talent Pool Maintenance
+- **Automated Stale Detection:** The system automatically flags candidates whose profiles haven't been updated in over 3 months.
+- **One-Click Bulk Refresh:** Click "Refresh Stale" on the dashboard to automatically iterate through outdated profiles, ping the GitHub API for their latest repos/languages, and intelligently merge the fresh data into the CSV.
 
-3. **API layer**
-   - FastAPI exposes the matching endpoint.
-   - The frontend posts queries to `http://127.0.0.1:8000/api/match` and receives candidate arrays.
+### 5. Metrics & GDPR Compliance
+- A dedicated metrics dashboard tracking pool health, seniority/location distributions, and outreach funnels.
+- **100% Local Data:** All candidate data is securely stored in a local CSV. No external vector databases or cloud storage APIs are used for data retention.
 
-4. **UI layer**
-   - React app contains reusable components for the sidebar, chat input, and candidate cards.
-   - Candidate data is displayed dynamically after backend matching.
+## Tech Stack
+- **Backend:** Python 3.12, FastAPI, LangChain, Groq API (llama-3.3-70b-versatile)
+- **Frontend:** React, TypeScript, Vite, CSS Flex/Grid
+- **Data:** CSV-backed structured storage
 
-## Current tech stack
+## How to Run Locally
 
-- Backend: `Python 3.12`, `FastAPI`, `python-dotenv`
-- AI / RAG: `langchain`, `langchain-community`, `langchain-huggingface`, `chromadb`, `sentence-transformers`
-- Frontend: `React`, `TypeScript`, `Vite`, `lucide-react`
-
-## Run locally
-
-### Backend
+### 1. Backend (FastAPI)
+Navigate to the `backend` folder, install requirements, and run Uvicorn:
 ```powershell
-cd d:\buildathon\CVision
+cd backend
+python -m venv .venv
 .venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-python backend/main.py
+pip install -r requirements.txt
+uvicorn main:app --reload
 ```
+*Make sure to add your `GROQ_API_KEY` to `backend/.env`.*
 
-### Frontend
+### 2. Frontend (Vite + React)
+In a separate terminal, navigate to the `frontend` folder:
 ```powershell
-cd d:\buildathon\CVision\frontend
+cd frontend
 npm install
 npm run dev
 ```
-
-### Notes
-- The backend uses `.env` values if present. By default it reads Obsidian files from `./obsidian_db` and stores Chroma data in `./chroma_storage`.
-- The frontend imports components using `src/components/*` and requires `vite-env.d.ts` for CSS module resolution.
-
-## Current project state
-
-- The backend is implemented and can run as a FastAPI service.
-- The frontend is implemented with a React + TypeScript dashboard.
-- The current structure no longer includes the older `backend/api/`, `backend/database/`, or `backend/ai_core/` folders from the outdated design.
-- The live candidate source is currently the Obsidian markdown dataset under `obsidian_db/`.
+Open `http://localhost:5173` in your browser.
