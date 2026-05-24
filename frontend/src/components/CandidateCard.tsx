@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './CandidateCard.css';
 import type { Candidate } from '../App';
 
@@ -14,14 +14,20 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
   matchRank,
   skillsScore,
   expScore,
+  industryScore,
   locationScore,
+  statusScore,
   tags,
   langs,
   colorTheme,
-  linkedin_url,
+  github_url,
   citation,
   onDraftEmail,
+  skill_breakdown,
+  weights,
 }) => {
+  const [showBreakdown, setShowBreakdown] = useState(false);
+
   return (
     <div className={`candidate-card theme-${colorTheme || 'blue'}`}>
       <div className="card-header">
@@ -44,23 +50,30 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
             <span className="value">{skillsScore}%</span>
           </div>
           <div className="score-item">
-            <span className="label">Experience:</span>
+            <span className="label">Seniority:</span>
             <span className="value">{expScore}%</span>
           </div>
+          {industryScore !== undefined && (
+            <div className="score-item">
+              <span className="label">Industry:</span>
+              <span className="value">{industryScore}%</span>
+            </div>
+          )}
           <div className="score-item">
             <span className="label">Location:</span>
             <span className="value">{locationScore}%</span>
           </div>
+          {statusScore !== undefined && (
+            <div className="score-item">
+              <span className="label">Status:</span>
+              <span className="value">{statusScore}%</span>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="card-body">
-        {citation && (
-          <div className="citation-box">
-            <span className="citation-icon">💡</span>
-            <p className="citation-text">"{citation}"</p>
-          </div>
-        )}
+
         <div className="tags-container">
           {tags.map((tag, index) => (
             <span key={index} className="skill-tag">{tag}</span>
@@ -77,12 +90,12 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
             className="btn btn-sm btn-primary draft-email-btn"
             onClick={() => onDraftEmail(name)}
           >
-            ✉️ Draft Email
+            Draft Email
           </button>
         )}
-        {linkedin_url && (
-          <a href={linkedin_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm linkedin-btn">
-            🔗 View LinkedIn
+        {github_url && (
+          <a href={github_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm linkedin-btn">
+            View GitHub
           </a>
         )}
       </div>

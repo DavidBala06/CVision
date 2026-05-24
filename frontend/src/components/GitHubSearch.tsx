@@ -106,9 +106,9 @@ const GitHubSearch: React.FC = () => {
 
       <div className="profile-card-footer">
         <a href={profile.profile_url} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-secondary">
-          🔗 View on GitHub
+          View on GitHub
         </a>
-        {profile.hireable && <span className="hireable-badge">✅ Hireable</span>}
+        {profile.hireable && <span className="hireable-badge">Hireable</span>}
       </div>
     </div>
   );
@@ -119,7 +119,7 @@ const GitHubSearch: React.FC = () => {
     <div className="github-search">
       <div className="section-header">
         <div>
-          <div className="section-title">🐙 GitHub Developer Search</div>
+          <div className="section-title">GitHub Developer Search</div>
           <div className="section-subtitle">Find developer candidates from GitHub profiles & repositories</div>
         </div>
       </div>
@@ -131,7 +131,7 @@ const GitHubSearch: React.FC = () => {
               className={`toggle-btn ${searchType === 'criteria' ? 'active' : ''}`}
               onClick={() => setSearchType('criteria')}
             >
-              🎯 Search by Role
+              Search by Role
             </button>
             <button
               className={`toggle-btn ${searchType === 'profile' ? 'active' : ''}`}
@@ -157,7 +157,7 @@ const GitHubSearch: React.FC = () => {
           </div>
 
           <button className="btn btn-primary" onClick={handleSearch} disabled={isSearching || !queryText.trim()}>
-            {isSearching ? <><span className="spinner"></span> Searching GitHub...</> : '🐙 Search GitHub'}
+            {isSearching ? <><span className="spinner"></span> Searching GitHub...</> : 'Search GitHub'}
           </button>
         </div>
 
@@ -217,7 +217,7 @@ const GitHubSearch: React.FC = () => {
 
         {result && !result.error && profiles.length === 0 && !isSearching && (
           <div className="empty-state">
-            <div className="empty-state-icon">🔍</div>
+            <div className="empty-state-icon"></div>
             <div className="empty-state-text">No matching profiles found. Try broadening your search criteria.</div>
           </div>
         )}

@@ -49,7 +49,7 @@ const Metrics: React.FC = () => {
     return (
       <div className="metrics">
         <div className="empty-state">
-          <div className="empty-state-icon">📈</div>
+          <div className="empty-state-icon"></div>
           <div className="empty-state-text">Could not load metrics. Is the backend running?</div>
         </div>
       </div>
@@ -63,7 +63,7 @@ const Metrics: React.FC = () => {
     <div className="metrics">
       <div className="section-header">
         <div>
-          <div className="section-title">📈 Success Metrics & Analytics</div>
+          <div className="section-title">Success Metrics & Analytics</div>
           <div className="section-subtitle">Pool health, accuracy tracking, and GDPR compliance overview</div>
         </div>
       </div>
@@ -87,24 +87,11 @@ const Metrics: React.FC = () => {
             </div>
             <div className="metric-card">
               <div className="metric-value red">{poolStats.stale}</div>
-              <div className="metric-label">Stale (&gt;6 months)</div>
+              <div className="metric-label">Stale (&gt;3 months)</div>
             </div>
           </div>
         </div>
 
-        {/* Target accuracy */}
-        <div className="metrics-section">
-          <h3 className="metrics-section-title">Match Accuracy Target</h3>
-          <div className="accuracy-bar-container">
-            <div className="accuracy-info">
-              <span className="accuracy-label">Target: {metrics.target_accuracy} matching candidates to roles</span>
-              <span className="accuracy-framework">{metrics.evaluation_framework}</span>
-            </div>
-            <div className="accuracy-bar">
-              <div className="accuracy-fill" style={{ width: '80%' }}></div>
-            </div>
-          </div>
-        </div>
 
         {/* Outreach funnel */}
         <div className="metrics-section">
@@ -156,12 +143,12 @@ const Metrics: React.FC = () => {
         <div className="metrics-section">
           <h3 className="metrics-section-title">GDPR Compliance</h3>
           <div className="gdpr-card">
-            <div className="gdpr-item">✅ All data stored locally (CSV — no external servers)</div>
-            <div className="gdpr-item">✅ Consent tracking per candidate (active / pending_consent)</div>
-            <div className="gdpr-item">✅ Data retention: 12 months (CV), 6 months (scrape)</div>
-            <div className="gdpr-item">✅ Human-in-the-Loop: all actions require HR approval</div>
-            <div className="gdpr-item">✅ Prompt injection guardrails active</div>
-            <div className="gdpr-item">✅ No external communication — recommendations only</div>
+            <div className="gdpr-item">All data stored locally (CSV — no external servers)</div>
+            <div className="gdpr-item">Consent tracking per candidate (active / pending_consent)</div>
+            <div className="gdpr-item">Data retention: 12 months (CV), 3 months (scrape)</div>
+            <div className="gdpr-item">Human-in-the-Loop: all actions require HR approval</div>
+            <div className="gdpr-item">Prompt injection guardrails active</div>
+            <div className="gdpr-item">No external communication — recommendations only</div>
           </div>
         </div>
       </div>

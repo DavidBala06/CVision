@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 
-from ai.RAG_engine import build_vector_database, create_retriever_chain
+from ai.RAG_engine import build_vector_database, score_shortlist
 from ai.cv_ingestion import extract_from_text, check_duplicate, add_candidate_to_csv, update_candidate_in_csv
 from ai.pool_maintenance import get_stale_candidates, intelligent_merge, bulk_refresh_candidates, get_pool_stats
 from ai.outreach_agent import generate_email_draft, generate_followup_draft, update_outreach_status, get_outreach_dashboard
@@ -44,9 +44,6 @@ if db:
     print("Vector database built successfully from talent_pool.csv")
 else:
     print("Warning: Vector database could not be built. Run migration script first.")
-
-print("Initializing Retriever Chain...")
-matcher = create_retriever_chain(db) if db else None
 
 # Models
 
@@ -94,61 +91,26 @@ async def get_candidates():
     
     return candidates
 
-# ENDPOINT: POST /api/match —  Shortlisting
+# ENDPOINT: POST /api/match —  Shortlisting (deterministic scorer)
 
 @app.post("/api/match")
 async def match_candidates(request: MatchRequest):
-    # Shortlist candidates from talent pool based on job query.
-    # Guardrail: sanitize input
+    """Shortlist candidates using the weighted scoring pipeline.
+    
+    Flow: LLM parses JD → vector DB retrieves candidates → deterministic
+    scorer ranks them with weighted formula → returns top 3.
+    """
     clean_query, is_safe = sanitize_input(request.query)
     if not is_safe:
         raise HTTPException(status_code=400, detail="Query contains disallowed patterns.")
     
-    if not matcher:
+    if not db:
         return []
     
     print(f"\n[API] Match query: {clean_query}")
     try:
-        candidates = matcher.invoke({"input": clean_query})
-        print(f"[API] Found {len(candidates) if isinstance(candidates, list) else 0} matches")
-        
-        if not candidates:
-            candidates = []
-        if isinstance(candidates, dict):
-            candidates = [candidates]
-        
-        # Guarantee minimum 3 results — pad from CSV if LLM returned fewer
-        if len(candidates) < 3 and CSV_PATH.exists():
-            existing_names = {c.get("name", "").lower() for c in candidates}
-            with open(CSV_PATH, "r", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    if len(candidates) >= 3:
-                        break
-                    if row.get("name", "").lower() in existing_names:
-                        continue
-                    # Build a filler candidate card
-                    name = row.get("name", "Unknown")
-                    name_parts = name.split()
-                    initials = "".join(p[0].upper() for p in name_parts[:2]) if name_parts else "??"
-                    techs = [t.strip() for t in row.get("technologies", "").split(",") if t.strip()][:3]
-                    candidates.append({
-                        "initials": initials,
-                        "name": name,
-                        "role": row.get("current_role") or row.get("seniority", "Candidate"),
-                        "matchScore": 40,
-                        "matchRank": "Fair",
-                        "skillsScore": 35,
-                        "expScore": 40,
-                        "locationScore": 30,
-                        "tags": techs if techs else ["—"],
-                        "langs": row.get("languages", ""),
-                        "linkedin_url": row.get("linkedin_url", ""),
-                        "citation": f"Padded from pool: {row.get('project_summary', '')[:80]}",
-                        "colorTheme": "blue",
-                    })
-                    existing_names.add(row.get("name", "").lower())
-        
+        candidates = score_shortlist(clean_query, db, top_n=3)
+        print(f"[API] Scorer returned {len(candidates)} ranked candidates")
         return candidates
     except Exception as e:
         print(f"[API] Error: {e}")
@@ -216,17 +178,33 @@ async def ingest_cv(file: UploadFile = File(None), text: str = Form(None)):
 @app.post("/api/ingest/approve")
 async def approve_ingestion(request: IngestApproveRequest):
     # Human-in-the-loop: approve extracted data and write to CSV.
-    global db, matcher
+    global db
     
-    success = add_candidate_to_csv(request.candidate_data)
+    candidate_data = request.candidate_data
+    # Check if this is an existing candidate
+    duplicate = check_duplicate(
+        name=candidate_data.get("name", ""),
+        email=candidate_data.get("email", ""),
+        linkedin_url=candidate_data.get("linkedin_url", "")
+    )
+    
+    if duplicate:
+        # Merge operation
+        merged = intelligent_merge(duplicate, candidate_data)
+        success = update_candidate_in_csv(duplicate["name"], merged)
+        action_word = "merged into"
+    else:
+        # New candidate
+        success = add_candidate_to_csv(candidate_data)
+        action_word = "added to"
+
     if not success:
-        raise HTTPException(status_code=500, detail="Failed to write to CSV.")
+        raise HTTPException(status_code=500, detail="Failed to update talent pool CSV.")
     
-    # Rebuild vector DB after adding new candidate
+    # Rebuild vector DB after adding/merging
     db = build_vector_database()
-    matcher = create_retriever_chain(db) if db else None
     
-    return {"message": f" {request.candidate_data.get('name', 'Candidate')} added to talent pool.", "success": True}
+    return {"message": f" {candidate_data.get('name', 'Candidate')} {action_word} talent pool.", "success": True}
 
 # ENDPOINT: GET /api/refresh/stale, auto-update detection
 
@@ -241,13 +219,12 @@ async def get_stale():
 @app.post("/api/refresh/update")
 async def refresh_candidates(request: RefreshRequest):
     # Bulk refresh selected candidates (update timestamps).
-    global db, matcher
+    global db
     
     result = bulk_refresh_candidates(request.candidate_names)
     
     # Rebuild vector DB after refresh
     db = build_vector_database()
-    matcher = create_retriever_chain(db) if db else None
     
     return result
 
@@ -267,7 +244,6 @@ async def merge_candidate(request: ManualUpdateRequest):
     
     if success:
         db = build_vector_database()
-        matcher = create_retriever_chain(db) if db else None
     
     return {"merged_data": merged, "success": success}
 

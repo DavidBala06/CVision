@@ -114,6 +114,14 @@ def bulk_refresh_candidates(candidate_names: list[str]) -> dict:
         fieldnames = reader.fieldnames
         for row in reader:
             if row.get("name", "").strip() in candidate_names:
+                github_url = row.get("github_url", "")
+                if github_url:
+                    from ai.github_sourcing import scrape_github_for_refresh
+                    new_data = scrape_github_for_refresh(github_url)
+                    if new_data:
+                        print(f"[Maintenance] Merging new GitHub data for {row['name']}")
+                        row = intelligent_merge(row, new_data)
+                        
                 row["last_updated_at"] = datetime.now().strftime("%Y-%m-%d")
                 refreshed.append(row["name"])
             rows.append(row)
@@ -161,6 +169,21 @@ def get_pool_stats() -> dict:
             sen = row.get("seniority", "unknown") or "unknown"
             seniority_dist[sen] = seniority_dist.get(sen, 0) + 1
             loc = row.get("location", "unknown") or "unknown"
+            
+            # Normalize location
+            loc_lower = loc.lower()
+            if not loc_lower or loc_lower == "unknown" or loc_lower == "romania":
+                loc = "Romania"
+            elif "cluj" in loc_lower:
+                loc = "Cluj-Napoca"
+            elif "bucharest" in loc_lower or "bucuresti" in loc_lower:
+                if "timisoara" in loc_lower:
+                    loc = "Bucharest / Timisoara"
+                else:
+                    loc = "Bucharest"
+            else:
+                loc = loc.replace(", Romania", "").replace(", România", "").strip()
+                
             location_dist[loc] = location_dist.get(loc, 0) + 1
 
     return {

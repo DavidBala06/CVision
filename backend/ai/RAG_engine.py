@@ -1,15 +1,22 @@
 """
-RAG Engine 
+RAG Engine
 
 Shortlisting — scan talent pool CSV, rank candidates for a job.
-Uses Chroma vector store + Groq LLM for semantic search and ranking, maybe we will switch to huggingface, i dont trust groq
+
+Pipeline:
+  1. LLM parses the job description into structured requirements
+  2. Vector DB retrieves semantically similar candidate profiles
+  3. Deterministic scorer (scorer.py) computes weighted scores
+  4. Return top N candidates ranked by matchScore
+
+The LLM is used ONLY for JD parsing — all scoring is deterministic
+and auditable via the weighted formula in scorer.py.
 """
 import os
 import csv
 import warnings
 from pathlib import Path
 from dotenv import load_dotenv
-from operator import itemgetter
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -17,11 +24,9 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_groq import ChatGroq
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.documents import Document
 
-from ai.guardrails import sanitize_input, validate_json_output, get_system_guardrail_prompt
+from ai.scorer import parse_job_description, rank_candidates
 
 load_dotenv()
 
@@ -60,12 +65,19 @@ def load_csv_as_documents() -> list[Document]:
             metadata = {
                 "name": row.get("name", ""),
                 "seniority": row.get("seniority", ""),
+                "years_of_experience": row.get("years_of_experience", ""),
+                "current_role": row.get("current_role", ""),
+                "previous_jobs": row.get("previous_jobs", ""),
+                "degrees": row.get("degrees", ""),
                 "location": row.get("location", ""),
+                "languages": row.get("languages", ""),
                 "technologies": row.get("technologies", ""),
+                "project_summary": row.get("project_summary", ""),
                 "linkedin_url": row.get("linkedin_url", ""),
                 "github_url": row.get("github_url", ""),
                 "email": row.get("email", ""),
                 "status": row.get("status", ""),
+                "last_updated_at": row.get("last_updated_at", ""),
             }
             
             documents.append(Document(page_content=content, metadata=metadata))
@@ -99,78 +111,69 @@ def build_vector_database():
     return vector_db
 
 
-def create_retriever_chain(vector_db):
-    #Create the RAG chain for candidate matching.
-    if vector_db is None:
-        return None
-
-    # LLM: Groq with Llama 3.3 
-    llm = ChatGroq(
+def _get_llm():
+    """Shared LLM instance for JD parsing."""
+    return ChatGroq(
         model="llama-3.3-70b-versatile",
-        temperature=0.01,
-        max_tokens=2048,
+        temperature=0.1,
+        max_tokens=1024,
         api_key=os.getenv("GROQ_API_KEY", ""),
     )
 
-    parser = JsonOutputParser()
 
-    # Strict prompt with guardrails
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", get_system_guardrail_prompt() + """
-You are a strict, objective HR Talent Matcher. You find the best candidates from a talent pool CSV database.
+def score_shortlist(query: str, vector_db, top_n: int = 3) -> list[dict]:
+    """
+    Full shortlisting pipeline:
+      1. LLM parses the query into structured requirements
+      2. Vector DB retrieves candidate documents (semantic search)
+      3. Deterministic scorer ranks them with weighted formula
+      4. Returns top N candidates
 
-CRITICAL RULES — STRICT GROUNDING:
-1. Base your answer STRICTLY on the provided context from the talent pool.
-2. If no candidates match, return an empty array: []
-3. Do NOT invent or hallucinate candidate information.
-4. REQUIRE CITATIONS: extract a short exact snippet proving the match.
-5. The LinkedIn URL must come from the context data — do NOT fabricate URLs.
+    Returns:
+        list of scored candidate dicts ready for the frontend CandidateCard
+    """
+    if vector_db is None:
+        return []
 
-INSTRUCTIONS:
-You MUST return EXACTLY 3 candidates from the context — no more, no fewer.
-Even if match quality varies, always return 3. Rank them from best to worst match.
-Respond ONLY with a valid JSON array. No text outside the JSON.
+    llm = _get_llm()
 
-Each object must have these exact keys:
-- "initials": string (first letters of first and last name)
-- "name": string
-- "role": string (use the REAL current_role from the data)
-- "matchScore": integer (0-100)
-- "matchRank": string ("Excellent", "Good", or "Fair")
-- "skillsScore": integer (0-100)
-- "expScore": integer (0-100)
-- "locationScore": integer (0-100)
-- "tags": array of 3 string skills (ONLY real skills from data)
-- "langs": string (languages spoken)
-- "linkedin_url": string (from data, or "" if not available)
-- "citation": string (exact snippet from context proving the match)
-- "colorTheme": string ("purple", "green", or "blue")
+    # Step 1: Parse JD into structured requirements
+    print(f"  [Scorer] Parsing JD with LLM...")
+    requirements = parse_job_description(query, llm)
+    print(f"  [Scorer] Requirements: skills={requirements.get('required_skills', [])}, "
+          f"seniority={requirements.get('min_seniority')}, "
+          f"industry={requirements.get('industry')}, "
+          f"location={requirements.get('location')}")
 
-{format_instructions}
-"""),
-        ("human", """HR Query: {input}
+    # Step 2: Retrieve candidate documents (score all candidates for deterministic strictness)
+    docs = load_csv_as_documents()
+    print(f"  [Scorer] Retrieved {len(docs)} candidate docs from CSV for full scoring")
 
-Candidate profiles from Talent Pool CSV:
-{context}""")
-    ])
+    # Convert documents back to dicts for the scorer
+    candidate_dicts = []
+    for doc in docs:
+        candidate_dicts.append(doc.metadata)
 
-    retriever = vector_db.as_retriever(search_kwargs={"k": 7})
+    if not candidate_dicts:
+        return []
 
-    def format_docs(docs):
-        return "\n\n".join(
-            f"--- CANDIDATE #{i+1} ---\n{doc.page_content}\nLinkedIn: {doc.metadata.get('linkedin_url', 'N/A')}\nGitHub: {doc.metadata.get('github_url', 'N/A')}"
-            for i, doc in enumerate(docs)
-        )
+    # Step 3: Deterministic scoring
+    print(f"  [Scorer] Scoring {len(candidate_dicts)} candidates with weighted formula...")
+    results = rank_candidates(candidate_dicts, requirements, top_n=top_n)
 
-    rag_chain = (
-        {
-            "context": itemgetter("input") | retriever | format_docs,
-            "input": itemgetter("input"),
-            "format_instructions": lambda _: parser.get_format_instructions(),
-        }
-        | prompt
-        | llm
-        | parser
-    )
+    for r in results:
+        print(f"    {r['name']:30s}  matchScore={r['matchScore']}  "
+              f"skills={r['skillsScore']}  exp={r['expScore']}  "
+              f"industry={r['industryScore']}  loc={r['locationScore']}")
 
-    return rag_chain
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Backward compatibility — keep create_retriever_chain for anything that
+# still references it, but it now just returns a thin wrapper.
+# ---------------------------------------------------------------------------
+
+def create_retriever_chain(vector_db):
+    """Legacy wrapper. Returns None — use score_shortlist() directly."""
+    return None

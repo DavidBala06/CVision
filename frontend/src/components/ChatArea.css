@@ -80,11 +80,16 @@
 
 /* Inline candidate cards */
 .inline-candidates-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1rem;
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
   width: 100%;
   margin-top: 0.5rem;
+}
+
+.inline-candidates-list > .candidate-card {
+  flex: 1;
+  max-width: 350px;
 }
 
 /* Input bar */

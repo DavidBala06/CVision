@@ -15,12 +15,16 @@ export interface Candidate {
   matchRank: string;
   skillsScore: number;
   expScore: number;
+  industryScore?: number;
   locationScore: number;
+  statusScore?: number;
   tags: string[];
   langs: string;
-  linkedin_url?: string;
+  github_url?: string;
   citation?: string;
   colorTheme: 'purple' | 'green' | 'blue';
+  skill_breakdown?: { skill: string; match: string; value: number }[];
+  weights?: Record<string, number>;
 }
 
 export interface ChatMessage {
@@ -154,12 +158,12 @@ function App() {
   };
 
   const tabs: { id: TabId; label: string; icon: string }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'shortlist', label: 'Shortlist', icon: '🎯' },
-    { id: 'upload', label: 'Upload CV', icon: '📄' },
-    { id: 'outreach', label: 'Outreach', icon: '✉️' },
-    { id: 'github', label: 'GitHub Search', icon: '🐙' },
-    { id: 'metrics', label: 'Metrics', icon: '📈' },
+    { id: 'dashboard', label: 'Dashboard', icon: '' },
+    { id: 'shortlist', label: 'Shortlist', icon: '' },
+    { id: 'upload', label: 'Upload CV', icon: '' },
+    { id: 'outreach', label: 'Outreach', icon: '' },
+    { id: 'github', label: 'GitHub Search', icon: '' },
+    { id: 'metrics', label: 'Metrics', icon: '' },
   ];
 
   return (
@@ -167,7 +171,7 @@ function App() {
       <main className="main-content">
         <div className="tab-header">
           <div className="navbar-brand">
-            <span className="brand-icon">🧠</span>
+            <span className="brand-icon"></span>
             <div className="brand-text">
               <span className="brand-name">TalentAI</span>
               <span className="brand-sub">by CVision</span>
