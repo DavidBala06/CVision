@@ -15,12 +15,16 @@ export interface Candidate {
   matchRank: string;
   skillsScore: number;
   expScore: number;
+  industryScore?: number;
   locationScore: number;
+  statusScore?: number;
   tags: string[];
   langs: string;
   linkedin_url?: string;
   citation?: string;
   colorTheme: 'purple' | 'green' | 'blue';
+  skill_breakdown?: { skill: string; match: string; value: number }[];
+  weights?: Record<string, number>;
 }
 
 export interface ChatMessage {

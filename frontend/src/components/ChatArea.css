@@ -81,7 +81,7 @@
 /* Inline candidate cards */
 .inline-candidates-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
   width: 100%;
   margin-top: 0.5rem;

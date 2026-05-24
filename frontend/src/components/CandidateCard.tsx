@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './CandidateCard.css';
 import type { Candidate } from '../App';
 
@@ -14,14 +14,20 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
   matchRank,
   skillsScore,
   expScore,
+  industryScore,
   locationScore,
+  statusScore,
   tags,
   langs,
   colorTheme,
   linkedin_url,
   citation,
   onDraftEmail,
+  skill_breakdown,
+  weights,
 }) => {
+  const [showBreakdown, setShowBreakdown] = useState(false);
+
   return (
     <div className={`candidate-card theme-${colorTheme || 'blue'}`}>
       <div className="card-header">
@@ -44,13 +50,25 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
             <span className="value">{skillsScore}%</span>
           </div>
           <div className="score-item">
-            <span className="label">Experience:</span>
+            <span className="label">Seniority:</span>
             <span className="value">{expScore}%</span>
           </div>
+          {industryScore !== undefined && (
+            <div className="score-item">
+              <span className="label">Industry:</span>
+              <span className="value">{industryScore}%</span>
+            </div>
+          )}
           <div className="score-item">
             <span className="label">Location:</span>
             <span className="value">{locationScore}%</span>
           </div>
+          {statusScore !== undefined && (
+            <div className="score-item">
+              <span className="label">Status:</span>
+              <span className="value">{statusScore}%</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -61,6 +79,31 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
             <p className="citation-text">"{citation}"</p>
           </div>
         )}
+
+        {/* Skill breakdown toggle */}
+        {skill_breakdown && skill_breakdown.length > 0 && (
+          <div className="skill-breakdown-section">
+            <button
+              className="breakdown-toggle"
+              onClick={() => setShowBreakdown(!showBreakdown)}
+            >
+              {showBreakdown ? '▾' : '▸'} Skill Breakdown ({skill_breakdown.filter(s => s.match !== 'none').length}/{skill_breakdown.length} matched)
+            </button>
+            {showBreakdown && (
+              <div className="breakdown-grid">
+                {skill_breakdown.map((sb, i) => (
+                  <div key={i} className={`breakdown-item match-${sb.match}`}>
+                    <span className="breakdown-skill">{sb.skill}</span>
+                    <span className={`breakdown-badge badge-${sb.match}`}>
+                      {sb.match === 'exact' ? '✓ exact' : sb.match === 'similar' ? '≈ similar' : '✗ none'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="tags-container">
           {tags.map((tag, index) => (
             <span key={index} className="skill-tag">{tag}</span>
