@@ -12,6 +12,11 @@
   overflow: hidden;
 }
 
+.candidate-card.card-selected {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-primary-glow), var(--shadow-md);
+}
+
 .candidate-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-md);
@@ -286,3 +291,71 @@
 .draft-email-btn {
   font-size: 0.75rem;
 }
+
+/* ═══════════════════════════════════════════
+   COMPARE CHECKBOX
+   ═══════════════════════════════════════════ */
+.compare-checkbox-label {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  z-index: 2;
+  user-select: none;
+  transition: color var(--transition-fast);
+}
+
+.compare-checkbox-label:hover { color: var(--accent-secondary); }
+
+.compare-checkbox { display: none; }
+
+.compare-checkbox-box {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-input);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #fff;
+  transition: var(--transition-fast);
+}
+
+.compare-checkbox:checked + .compare-checkbox-box {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+/* ═══════════════════════════════════════════
+   WHY THIS SCORE BUTTON
+   ═══════════════════════════════════════════ */
+.why-score-btn {
+  background: rgba(99, 102, 241, 0.07);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--accent-secondary);
+  font-family: var(--font-family);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.4rem 0.75rem;
+  width: 100%;
+  text-align: center;
+  transition: var(--transition-fast);
+  letter-spacing: 0.01em;
+}
+
+.why-score-btn:hover {
+  background: rgba(99, 102, 241, 0.14);
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-1px);
+}
