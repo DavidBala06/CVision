@@ -4,6 +4,7 @@ FastAPI Backend
 All 12 API endpoints for the AI Talent Pool Manager.
 
 """
+import io
 import os
 import csv
 import json
@@ -13,8 +14,9 @@ from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 from ai.RAG_engine import build_vector_database, score_shortlist
 from ai.cv_ingestion import extract_from_text, check_duplicate, add_candidate_to_csv, update_candidate_in_csv
@@ -74,6 +76,10 @@ class GitHubSearchRequest(BaseModel):
 class ManualUpdateRequest(BaseModel):
     candidate_name: str
     new_data: dict
+
+class ExportShortlistRequest(BaseModel):
+    candidates: List[dict]
+    job_description: str = ""
 
 # ENDPOINT: GET /api/candidates — Dashboard table
 
@@ -158,6 +164,18 @@ async def ingest_cv(file: UploadFile = File(None), text: str = Form(None)):
     if "error" in extracted:
         raise HTTPException(status_code=500, detail=extracted["error"])
     
+    # Confidence scoring — count populated fields
+    key_fields = ["name", "current_role", "technologies", "seniority",
+                  "years_of_experience", "location", "email"]
+    filled = sum(1 for f in key_fields if extracted.get(f, "").strip())
+    ratio = filled / len(key_fields)
+    if ratio >= 0.85:
+        confidence_level = "high"
+    elif ratio >= 0.55:
+        confidence_level = "medium"
+    else:
+        confidence_level = "low"
+
     # Dedup check
     duplicate = check_duplicate(
         name=extracted.get("name", ""),
@@ -169,6 +187,8 @@ async def ingest_cv(file: UploadFile = File(None), text: str = Form(None)):
         "extracted_data": extracted,
         "is_duplicate": duplicate is not None,
         "existing_record": duplicate,
+        "confidence_level": confidence_level,
+        "confidence_ratio": round(ratio * 100),
         "message": "Review the extracted data. Click 'Approve' to add to the talent pool." if not duplicate
                    else "Candidate may already exist in the pool. Review and choose to merge or add as new."
     }
@@ -233,7 +253,7 @@ async def refresh_candidates(request: RefreshRequest):
 @app.post("/api/refresh/merge")
 async def merge_candidate(request: ManualUpdateRequest):
     # Manually update a candidate with new data (AI powered merge).
-    global db, matcher
+    global db
     
     existing = check_duplicate(name=request.candidate_name)
     if not existing:
@@ -246,6 +266,36 @@ async def merge_candidate(request: ManualUpdateRequest):
         db = build_vector_database()
     
     return {"merged_data": merged, "success": success}
+
+
+# ENDPOINT: POST /api/export-shortlist — Download shortlist as CSV
+
+@app.post("/api/export-shortlist")
+async def export_shortlist(request: ExportShortlistRequest):
+    """Return a ranked shortlist as a downloadable CSV file."""
+    fieldnames = [
+        "rank", "name", "role", "matchScore", "matchRank",
+        "skillsScore", "expScore", "industryScore", "locationScore", "statusScore",
+        "tags", "citation", "github_url"
+    ]
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
+    writer.writeheader()
+    for i, cand in enumerate(request.candidates, start=1):
+        row = {k: cand.get(k, "") for k in fieldnames}
+        row["rank"] = i
+        if isinstance(row["tags"], list):
+            row["tags"] = ", ".join(row["tags"])
+        writer.writerow(row)
+    
+    output.seek(0)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    filename = f"shortlist_{timestamp}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 # ENDPOINT: POST /api/draft-email- Email drafts
 
