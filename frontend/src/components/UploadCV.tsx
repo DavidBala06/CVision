@@ -31,6 +31,8 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
   const [isApproving, setIsApproving] = useState(false);
   const [message, setMessage] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [confidenceLevel, setConfidenceLevel] = useState<'high' | 'medium' | 'low' | null>(null);
+  const [confidenceRatio, setConfidenceRatio] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -109,6 +111,8 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
       setIsDuplicate(data.is_duplicate);
       setExistingRecord(data.existing_record);
       setMessage(data.message);
+      setConfidenceLevel(data.confidence_level ?? null);
+      setConfidenceRatio(data.confidence_ratio ?? 0);
     } catch (err) {
       setMessage(`Extraction failed: ${err}`);
     } finally {
@@ -233,7 +237,17 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
         {extractedData && (
           <div className={`review-area ${pdfUrl ? 'has-pdf' : ''}`}>
             <div className="review-header">
-              <h3>Review Extracted Data</h3>
+              <div className="review-header-top">
+                <h3>Review Extracted Data</h3>
+                {confidenceLevel && (
+                  <div className={`confidence-badge confidence-${confidenceLevel}`} title={`${confidenceRatio}% of key fields extracted`}>
+                    {confidenceLevel === 'high' && '✓ High Confidence'}
+                    {confidenceLevel === 'medium' && '⚠ Medium Confidence'}
+                    {confidenceLevel === 'low' && '✗ Low Confidence'}
+                    <span className="confidence-ratio">{confidenceRatio}%</span>
+                  </div>
+                )}
+              </div>
               <p className="review-hint">Edit any field before approving. All data is AI-extracted — please verify.</p>
             </div>
 
