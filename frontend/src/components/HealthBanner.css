@@ -1,0 +1,86 @@
+/* ═══════════════════════════════════════════
+   HEALTH BANNER — pool stats strip
+   ═══════════════════════════════════════════ */
+
+.health-banner {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.health-banner.banner-loaded {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.health-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.9rem 1rem;
+  background: var(--bg-surface);
+  position: relative;
+  transition: background var(--transition-fast);
+  cursor: default;
+}
+
+.health-stat:hover {
+  background: var(--bg-card-hover);
+}
+
+.health-stat::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 15%;
+  right: 15%;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.health-stat:hover::after { opacity: 1; background: var(--accent-primary); }
+
+.health-stat-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+  margin-bottom: 0.1rem;
+}
+
+.health-stat-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  transition: color var(--transition-base);
+}
+
+.health-stat-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.health-stat-sub {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  text-align: center;
+  font-weight: 400;
+}
+
+/* Responsive: collapse to 2×2 on narrower viewports */
+@media (max-width: 640px) {
+  .health-banner {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
