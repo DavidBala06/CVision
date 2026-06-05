@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './Dashboard.css';
 import type { PoolCandidate } from '../App';
+import HealthBanner from './HealthBanner';
 
 interface DashboardProps {
   candidates: PoolCandidate[];
@@ -74,6 +75,9 @@ const Dashboard: React.FC<DashboardProps> = ({ candidates, onRefresh }) => {
 
   return (
     <div className="dashboard">
+      {/* Feature 5: Live Pool Health Banner */}
+      <HealthBanner candidates={candidates} />
+
       <div className="section-header">
         <div>
           <div className="section-title">Talent Pool</div>
