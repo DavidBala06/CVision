@@ -240,7 +240,7 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
               {isExtracting ? (
                 <><span className="spinner"></span> {isGitHubInput ? 'Fetching from GitHub...' : 'Extracting with AI...'}</>
               ) : (
-                isGitHubInput ? '🐙 Import from GitHub' : 'Extract with AI'
+                isGitHubInput ? ' Import from GitHub' : 'Extract with AI'
               )}
             </button>
           </div>
@@ -276,7 +276,7 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
 
             {isDuplicate && (
               <div className="duplicate-warning">
-                <strong>Duplicate candidate detected!</strong> 
+                <strong>Duplicate candidate detected!</strong>
                 Clicking 'Approve & Merge' will intelligently blend this new data into their existing profile.
               </div>
             )}
@@ -328,8 +328,8 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
                 ← Back
               </button>
               <button className="btn btn-success" onClick={handleApprove} disabled={isApproving}>
-                {isApproving 
-                  ? (isDuplicate ? 'Merging...' : 'Adding...') 
+                {isApproving
+                  ? (isDuplicate ? 'Merging...' : 'Adding...')
                   : (isDuplicate ? 'Approve & Merge' : 'Approve & Add to Pool')}
               </button>
             </div>
