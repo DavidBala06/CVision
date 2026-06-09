@@ -167,7 +167,7 @@ async def ingest_cv(file: UploadFile = File(None), text: str = Form(None)):
     # Confidence scoring — count populated fields
     key_fields = ["name", "current_role", "technologies", "seniority",
                   "years_of_experience", "location", "email"]
-    filled = sum(1 for f in key_fields if extracted.get(f, "").strip())
+    filled = sum(1 for f in key_fields if str(extracted.get(f, "") or "").strip())
     ratio = filled / len(key_fields)
     if ratio >= 0.85:
         confidence_level = "high"
