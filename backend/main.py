@@ -19,7 +19,10 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 from ai.RAG_engine import build_vector_database, score_shortlist
-from ai.cv_ingestion import extract_from_text, check_duplicate, add_candidate_to_csv, update_candidate_in_csv
+from ai.cv_ingestion import (
+    extract_from_text, check_duplicate, add_candidate_to_csv, update_candidate_in_csv,
+    is_github_url, extract_from_github_url,
+)
 from ai.pool_maintenance import get_stale_candidates, intelligent_merge, bulk_refresh_candidates, get_pool_stats
 from ai.outreach_agent import generate_email_draft, generate_followup_draft, update_outreach_status, get_outreach_dashboard
 from ai.github_sourcing import search_by_criteria, search_by_profile
@@ -158,8 +161,16 @@ async def ingest_cv(file: UploadFile = File(None), text: str = Form(None)):
     if not raw_text.strip():
         raise HTTPException(status_code=400, detail="Could not extract text from the provided input.")
     
-    # AI extraction 
-    extracted = extract_from_text(raw_text)
+    # --- Route: GitHub URL vs plain CV text ---------------------------------
+    source = "cv"
+    if not file and is_github_url(raw_text.strip()):
+        # GitHub profile URL — use API directly, no LLM needed
+        print(f"[API] Detected GitHub URL: {raw_text.strip()}")
+        extracted = extract_from_github_url(raw_text.strip())
+        source = "github"
+    else:
+        # Plain text (CV/LinkedIn) — use LLM NER
+        extracted = extract_from_text(raw_text)
     
     if "error" in extracted:
         raise HTTPException(status_code=500, detail=extracted["error"])
@@ -189,6 +200,7 @@ async def ingest_cv(file: UploadFile = File(None), text: str = Form(None)):
         "existing_record": duplicate,
         "confidence_level": confidence_level,
         "confidence_ratio": round(ratio * 100),
+        "source": source,
         "message": "Review the extracted data. Click 'Approve' to add to the talent pool." if not duplicate
                    else "Candidate may already exist in the pool. Review and choose to merge or add as new."
     }

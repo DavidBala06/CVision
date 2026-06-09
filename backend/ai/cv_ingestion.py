@@ -3,12 +3,13 @@ CV Ingestion Module
 
 Handles:
 Manual CV/LinkedIn extraction → structured JSON mapped to CSV columns
+GitHub profile URL → GitHub API fetch → structured JSON (no LLM needed)
 All required fields (name, seniority, years_exp, etc.)
-
 
 Also performs dedup checking against existing talent pool.
 """
 import os
+import re
 import csv
 import json
 from pathlib import Path
@@ -96,6 +97,106 @@ EXTRACTION RULES:
         
     except Exception as e:
         return {"error": f"Extraction failed: {str(e)}"}
+
+
+# ---------------------------------------------------------------------------
+# GitHub Profile ingestion (no LLM — pure API mapping)
+# ---------------------------------------------------------------------------
+
+def is_github_url(text: str) -> bool:
+    """Return True if the text looks like a GitHub profile URL or bare username path."""
+    text = text.strip()
+    # Full URL: https://github.com/username or http://github.com/username
+    if re.match(r'https?://github\.com/[^/\s?#]+/?$', text, re.IGNORECASE):
+        return True
+    # Without protocol: github.com/username
+    if re.match(r'github\.com/[^/\s?#]+/?$', text, re.IGNORECASE):
+        return True
+    return False
+
+
+def extract_from_github_url(github_url: str) -> dict:
+    """
+    Extract candidate data directly from a GitHub profile URL.
+
+    Strategy:
+    1. Parse the username from the URL.
+    2. Hit GitHub REST API for profile + top repos (no auth needed for public profiles).
+    3. Map structured API response directly to CSV fields — zero LLM calls.
+    4. Infer seniority heuristically from followers + public_repos count.
+
+    Returns the same shape as extract_from_text() so the rest of the ingest
+    pipeline is unchanged.
+    """
+    # Lazy import to avoid circular dependency (github_sourcing also imports guardrails)
+    from ai.github_sourcing import _fetch_user_details, _fetch_user_repos
+
+    # --- 1. Parse username ---------------------------------------------------
+    raw = github_url.strip().rstrip("/")
+    match = re.search(r'github\.com/([^/\s?#]+)', raw, re.IGNORECASE)
+    if match:
+        username = match.group(1)
+    else:
+        username = raw  # treat bare input as a username
+
+    # --- 2. Fetch from GitHub API -------------------------------------------
+    details = _fetch_user_details(username)
+    if not details or details.get("message") == "Not Found":
+        return {"error": f"GitHub profile '{username}' not found. Check the URL and try again."}
+
+    repos = _fetch_user_repos(username, limit=10)
+
+    # Collect programming languages from repos
+    languages = list(dict.fromkeys(  # preserve insertion order, deduplicate
+        r["language"] for r in repos if r.get("language")
+    ))
+
+    # --- 3. Build project_summary -------------------------------------------
+    bio = (details.get("bio") or "").strip()
+    top_repos_text = "; ".join(
+        "{name} ({lang}, {stars}★)".format(
+            name=r["name"],
+            lang=r.get("language") or "?",
+            stars=r.get("stars", 0),
+        )
+        for r in repos[:5]
+        if r.get("name")
+    )
+    summary_parts = [p for p in [bio, f"Top repos: {top_repos_text}" if top_repos_text else ""] if p]
+    project_summary = " | ".join(summary_parts)
+
+    # --- 4. Heuristic seniority from public signals -------------------------
+    followers = details.get("followers", 0)
+    public_repos = details.get("public_repos", 0)
+    if followers > 500 or public_repos > 60:
+        seniority = "senior"
+    elif followers > 100 or public_repos > 25:
+        seniority = "mid"
+    elif public_repos > 8:
+        seniority = "junior"
+    else:
+        seniority = "intern"
+
+    # Strip leading "@" from company field (GitHub convention)
+    company = (details.get("company") or "").replace("@", "").strip()
+
+    # --- 5. Return mapped dict ----------------------------------------------
+    return {
+        "name":                details.get("name") or username,
+        "seniority":           seniority,
+        "years_of_experience": "",   # not determinable from GitHub alone
+        "current_role":        company,
+        "previous_jobs":       "",
+        "degrees":             "",
+        "location":            details.get("location") or "",
+        "languages":           "",   # spoken languages — not on GitHub
+        "technologies":        ", ".join(lang.lower() for lang in languages),
+        "project_summary":     project_summary,
+        "linkedin_url":        "",
+        "email":               details.get("email") or "",
+        "github_url":          f"https://github.com/{username}",
+    }
+
 
 
 def check_duplicate(name: str, email: str = "", linkedin_url: str = "") -> dict | None:
