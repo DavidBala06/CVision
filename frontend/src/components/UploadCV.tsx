@@ -17,6 +17,7 @@ interface ExtractedData {
   technologies: string;
   project_summary: string;
   linkedin_url: string;
+  github_url: string;
   email: string;
   [key: string]: string;
 }
@@ -33,9 +34,13 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
   const [successMsg, setSuccessMsg] = useState('');
   const [confidenceLevel, setConfidenceLevel] = useState<'high' | 'medium' | 'low' | null>(null);
   const [confidenceRatio, setConfidenceRatio] = useState<number>(0);
+  const [extractionSource, setExtractionSource] = useState<'cv' | 'github' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  // Detect GitHub URL in textarea for smart UI feedback
+  const isGitHubInput = !file && /github\.com\/[^\s/]+\/?$/.test(pastedText.trim());
 
   // Clean up object URL when component unmounts or PDF changes
   useEffect(() => {
@@ -113,6 +118,7 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
       setMessage(data.message);
       setConfidenceLevel(data.confidence_level ?? null);
       setConfidenceRatio(data.confidence_ratio ?? 0);
+      setExtractionSource(data.source ?? 'cv');
     } catch (err) {
       setMessage(`Extraction failed: ${err}`);
     } finally {
@@ -163,9 +169,10 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
 
   const fieldLabels: Record<string, string> = {
     name: 'Full Name', seniority: 'Seniority Level', years_of_experience: 'Years of Experience',
-    current_role: 'Current Role', previous_jobs: 'Previous Jobs', degrees: 'Degrees',
-    location: 'Location', languages: 'Languages Spoken', technologies: 'Technologies',
-    project_summary: 'Project Summary', linkedin_url: 'LinkedIn URL', email: 'Email',
+    current_role: 'Current Role / Company', previous_jobs: 'Previous Jobs', degrees: 'Degrees',
+    location: 'Location', languages: 'Languages Spoken', technologies: 'Technologies (comma-separated)',
+    project_summary: 'Project Summary / Bio', linkedin_url: 'LinkedIn URL',
+    github_url: 'GitHub URL', email: 'Email',
   };
 
   return (
@@ -209,25 +216,31 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
               <div className="upload-divider"><span>OR</span></div>
 
               <div className="paste-area">
+                <div className="paste-label">
+                  {isGitHubInput
+                    ? <span className="github-detected-hint">🐙 GitHub profile detected — will use GitHub API directly</span>
+                    : <span className="paste-label-text">Paste a GitHub URL or any profile text</span>
+                  }
+                </div>
                 <textarea
-                  className="form-textarea paste-input"
-                  placeholder="Paste Github link here..."
+                  className={`form-textarea paste-input ${isGitHubInput ? 'github-input-active' : ''}`}
+                  placeholder="https://github.com/username  — or paste any profile / CV text here"
                   value={pastedText}
                   onChange={e => setPastedText(e.target.value)}
-                  rows={6}
+                  rows={4}
                 />
               </div>
             </div>
 
             <button
-              className="btn btn-primary extract-btn"
+              className={`btn extract-btn ${isGitHubInput ? 'btn-github' : 'btn-primary'}`}
               onClick={handleExtract}
               disabled={isExtracting || (!file && !pastedText.trim())}
             >
               {isExtracting ? (
-                <><span className="spinner"></span> Extracting with AI...</>
+                <><span className="spinner"></span> {isGitHubInput ? 'Fetching from GitHub...' : 'Extracting with AI...'}</>
               ) : (
-                'Extract with AI'
+                isGitHubInput ? '🐙 Import from GitHub' : 'Extract with AI'
               )}
             </button>
           </div>
@@ -239,6 +252,11 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
             <div className="review-header">
               <div className="review-header-top">
                 <h3>Review Extracted Data</h3>
+                {extractionSource === 'github' && (
+                  <div className="source-badge source-github" title="Data fetched directly from GitHub API">
+                    🐙 From GitHub
+                  </div>
+                )}
                 {confidenceLevel && (
                   <div className={`confidence-badge confidence-${confidenceLevel}`} title={`${confidenceRatio}% of key fields extracted`}>
                     {confidenceLevel === 'high' && '✓ High Confidence'}
@@ -248,7 +266,12 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
                   </div>
                 )}
               </div>
-              <p className="review-hint">Edit any field before approving. All data is AI-extracted — please verify.</p>
+              <p className="review-hint">
+                {extractionSource === 'github'
+                  ? 'Data imported from GitHub API. Fill in missing fields (e.g. Years of Experience, Spoken Languages) before approving.'
+                  : 'Edit any field before approving. All data is AI-extracted — please verify.'
+                }
+              </p>
             </div>
 
             {isDuplicate && (
