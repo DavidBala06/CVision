@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 
 from ai.guardrails import sanitize_input, validate_json_output, get_system_guardrail_prompt
 
@@ -91,12 +91,81 @@ EXTRACTION RULES:
             for field in EXTRACTION_FIELDS:
                 if field not in result:
                     result[field] = ""
+            # Infer role from experience if not explicitly stated
+            current_role = str(result.get("current_role", "") or "").strip()
+            if not current_role:
+                inferred = infer_role_from_experience(result)
+                if inferred:
+                    result["current_role"] = inferred
+                    print(f"[Ingestion] Inferred role: {inferred}")
             return result
         
         return {"error": "LLM returned invalid format"}
         
     except Exception as e:
         return {"error": f"Extraction failed: {str(e)}"}
+
+
+def infer_role_from_experience(extracted: dict) -> str:
+    """
+    Use the LLM to infer a current role/title when one isn't explicitly stated
+    in the CV. Looks at previous_jobs, technologies, seniority, and project_summary
+    to generate a fitting role title.
+
+    Returns the inferred role string, or "" if inference fails.
+    """
+    previous_jobs = str(extracted.get("previous_jobs", "") or "").strip()
+    technologies = str(extracted.get("technologies", "") or "").strip()
+    seniority = str(extracted.get("seniority", "") or "").strip()
+    project_summary = str(extracted.get("project_summary", "") or "").strip()
+
+    # Need at least some context to infer from
+    if not previous_jobs and not technologies:
+        return ""
+
+    llm = get_llm()
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", get_system_guardrail_prompt() + """
+You are an expert HR role classification agent. Based on a candidate's experience,
+technologies, and seniority, generate the SINGLE most appropriate current job title.
+
+RULES:
+1. Return ONLY the job title, nothing else. No quotes, no explanation.
+2. Use standard industry titles (e.g. "Full-Stack Developer", "Data Engineer",
+   "DevOps Engineer", "Product Manager", "ML Engineer", "QA Engineer").
+3. Include seniority prefix if appropriate (e.g. "Senior Backend Developer",
+   "Junior Frontend Developer", "Lead Data Scientist").
+4. If the candidate has diverse experience, pick the title that best represents
+   their strongest/most recent skill set.
+5. Keep it concise — max 5 words.
+"""),
+        ("human", """Infer the most fitting current job title for this candidate:
+
+PREVIOUS JOBS: {previous_jobs}
+TECHNOLOGIES: {technologies}
+SENIORITY: {seniority}
+PROJECT SUMMARY: {project_summary}
+
+Job title:""")
+    ])
+
+    chain = prompt | llm | StrOutputParser()
+
+    try:
+        role = chain.invoke({
+            "previous_jobs": previous_jobs[:500],
+            "technologies": technologies[:300],
+            "seniority": seniority,
+            "project_summary": project_summary[:300],
+        }).strip().strip('"').strip("'")
+        # Sanity check: role should be short and not contain explanations
+        if role and len(role) < 60 and "\n" not in role:
+            return role
+        return ""
+    except Exception as e:
+        print(f"[Ingestion] Role inference failed: {e}")
+        return ""
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +250,7 @@ def extract_from_github_url(github_url: str) -> dict:
     company = (details.get("company") or "").replace("@", "").strip()
 
     # --- 5. Return mapped dict ----------------------------------------------
-    return {
+    result = {
         "name":                details.get("name") or username,
         "seniority":           seniority,
         "years_of_experience": "",   # not determinable from GitHub alone
@@ -196,6 +265,18 @@ def extract_from_github_url(github_url: str) -> dict:
         "email":               details.get("email") or "",
         "github_url":          f"https://github.com/{username}",
     }
+
+    # Infer a proper role title from repos/technologies if we only have a
+    # company name (or nothing at all) — GitHub doesn't expose job titles.
+    inferred = infer_role_from_experience(result)
+    if inferred:
+        if company:
+            result["current_role"] = f"{inferred} @ {company}"
+        else:
+            result["current_role"] = inferred
+        print(f"[Ingestion] Inferred GitHub role: {result['current_role']}")
+
+    return result
 
 
 
