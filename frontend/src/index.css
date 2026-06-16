@@ -197,6 +197,9 @@ body {
   margin-left: auto;
   flex-shrink: 0;
   padding-left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
 }
 
 .pool-count-badge {
@@ -226,6 +229,31 @@ body {
 .tab-content {
   flex: 1;
   overflow: hidden;
+}
+
+/* Sign Out avatar button */
+.sign-out-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-family: var(--font-family);
+  font-size: 0.65rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.02em;
+}
+
+.sign-out-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
 }
 
 /* ═══════════════════════════════════════════
