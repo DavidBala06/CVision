@@ -10,7 +10,7 @@ import csv
 import json
 import tempfile
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,6 +28,7 @@ from ai.outreach_agent import generate_email_draft, generate_followup_draft, upd
 from ai.github_sourcing import search_by_criteria, search_by_profile
 from ai.guardrails import sanitize_input
 from scraper.parser import extract_text_from_pdf
+from auth import init_auth_db, authenticate_user
 
 app = FastAPI(title="TalentAI Agent", version="2.0.0")
 
@@ -42,6 +43,10 @@ app.add_middleware(
 BASE_DIR = Path(__file__).resolve().parent
 CSV_PATH = Path(os.getenv("CSV_PATH", str(BASE_DIR / "data" / "talent_pool.csv")))
 
+# Initialize Auth DB
+print("Initializing Auth Database...")
+init_auth_db()
+
 # Initialize RAG
 print("Initializing Vector Database from CSV...")
 db = build_vector_database()
@@ -51,6 +56,10 @@ else:
     print("Warning: Vector database could not be built. Run migration script first.")
 
 # Models
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
 class MatchRequest(BaseModel):
     query: str
@@ -83,6 +92,96 @@ class ManualUpdateRequest(BaseModel):
 class ExportShortlistRequest(BaseModel):
     candidates: List[dict]
     job_description: str = ""
+
+# ENDPOINT: POST /api/login — Authentication
+
+@app.post("/api/login")
+async def login(request: LoginRequest):
+    """Authenticate a user against the SQLite users database."""
+    user = authenticate_user(request.username, request.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid username or password.")
+    return {
+        "success": True,
+        "token": f"session-{user['id']}-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "user": {
+            "name": user["full_name"],
+            "role": user["role"],
+            "username": user["username"],
+        },
+    }
+
+# ENDPOINT: GET /api/pending-actions — Aggregated recruiter tasks
+
+@app.get("/api/pending-actions")
+async def get_pending_actions():
+    """Aggregate actionable tasks for the recruiter dashboard.
+    
+    Checks three sources:
+    1. Stale profiles (>3 months since last update)
+    2. Follow-up needed (email sent >7 days ago, no reply)
+    3. New applications (status == pending_consent)
+    """
+    actions = []
+
+    # 1. Stale profiles
+    try:
+        stale = get_stale_candidates(months_threshold=3)
+        if stale:
+            actions.append({
+                "type": "stale_profiles",
+                "priority": "medium",
+                "count": len(stale),
+                "candidates": [s["name"] for s in stale[:5]],
+                "message": f"{len(stale)} stale profile{'s' if len(stale) != 1 else ''} need a refresh (older than 3 months)",
+            })
+    except Exception:
+        pass
+
+    # 2. Follow-up needed (email_sent + >7 days ago)
+    # 3. New applications (pending_consent)
+    followup_candidates = []
+    new_app_candidates = []
+
+    if CSV_PATH.exists():
+        with open(CSV_PATH, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                # Follow-up check
+                if row.get("outreach_status") == "email_sent" and row.get("outreach_date"):
+                    try:
+                        sent_date = datetime.strptime(row["outreach_date"].strip(), "%Y-%m-%d")
+                        if (datetime.now() - sent_date).days >= 7:
+                            followup_candidates.append(row.get("name", "Unknown"))
+                    except ValueError:
+                        pass
+
+                # New applications check
+                if row.get("status") == "pending_consent":
+                    new_app_candidates.append(row.get("name", "Unknown"))
+
+    if followup_candidates:
+        actions.append({
+            "type": "follow_up_needed",
+            "priority": "high",
+            "count": len(followup_candidates),
+            "candidates": followup_candidates[:5],
+            "message": f"{len(followup_candidates)} candidate{'s' if len(followup_candidates) != 1 else ''} require follow-up (no response in 7+ days)",
+        })
+
+    if new_app_candidates:
+        actions.append({
+            "type": "new_applications",
+            "priority": "high",
+            "count": len(new_app_candidates),
+            "candidates": new_app_candidates[:5],
+            "message": f"Review {len(new_app_candidates)} new candidate{'s' if len(new_app_candidates) != 1 else ''} pending consent",
+        })
+
+    return {
+        "actions": actions,
+        "total_actions": sum(a["count"] for a in actions),
+    }
 
 # ENDPOINT: GET /api/candidates — Dashboard table
 
