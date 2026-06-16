@@ -75,7 +75,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ messages, onSendMessage, isLoading,
       {/* Toolbar */}
       <div className="chat-toolbar">
         <span className="chat-toolbar-label">
-          🔍 AI Shortlisting
+          Candidate Shortlisting
         </span>
         <div className="chat-toolbar-actions">
           {compareList.length > 0 && (
@@ -84,7 +84,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ messages, onSendMessage, isLoading,
               className="toolbar-btn toolbar-btn-compare"
               onClick={() => setShowCompare(true)}
             >
-              ⚖️ Compare ({compareList.length})
+              Compare ({compareList.length})
             </button>
           )}
           {hasShortlist && (

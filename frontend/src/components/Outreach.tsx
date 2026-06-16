@@ -127,8 +127,8 @@ const Outreach: React.FC<OutreachProps> = ({ candidates, preselectedCandidate })
     <div className="outreach">
       <div className="section-header">
         <div>
-          <div className="section-title">Outreach & Communication</div>
-          <div className="section-subtitle">Module 3: Email drafts + progress monitoring</div>
+          <div className="section-title">Outreach Pipeline</div>
+          <div className="section-subtitle">Email drafts, follow-ups & candidate tracking</div>
         </div>
         <div className="outreach-tabs">
           <button className={`btn btn-sm ${activeSubTab === 'compose' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveSubTab('compose')}>

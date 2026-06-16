@@ -179,8 +179,8 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
     <div className="upload-cv">
       <div className="section-header">
         <div>
-          <div className="section-title">Upload CV / Github Profile</div>
-          <div className="section-subtitle">Module 1: AI extracts candidate data for your review</div>
+          <div className="section-title">Add Candidate</div>
+          <div className="section-subtitle">Import from CV or GitHub profile</div>
         </div>
       </div>
 

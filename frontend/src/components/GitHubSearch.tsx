@@ -119,8 +119,8 @@ const GitHubSearch: React.FC = () => {
     <div className="github-search">
       <div className="section-header">
         <div>
-          <div className="section-title">GitHub Developer Search</div>
-          <div className="section-subtitle">Find developer candidates from GitHub profiles & repositories</div>
+          <div className="section-title">Source from GitHub</div>
+          <div className="section-subtitle">Search developers by role requirements or find similar profiles</div>
         </div>
       </div>
 

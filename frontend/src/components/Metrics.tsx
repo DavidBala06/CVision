@@ -63,15 +63,15 @@ const Metrics: React.FC = () => {
     <div className="metrics">
       <div className="section-header">
         <div>
-          <div className="section-title">Success Metrics & Analytics</div>
-          <div className="section-subtitle">Pool health, accuracy tracking, and GDPR compliance overview</div>
+          <div className="section-title">Recruitment Analytics</div>
+          <div className="section-subtitle">Pool health, hiring funnel & compliance overview</div>
         </div>
       </div>
 
       <div className="metrics-content">
         {/* Pool health cards */}
         <div className="metrics-section">
-          <h3 className="metrics-section-title">Talent Pool Health</h3>
+          <h3 className="metrics-section-title">Pool Overview</h3>
           <div className="metric-cards">
             <div className="metric-card highlight">
               <div className="metric-value">{poolStats.total}</div>

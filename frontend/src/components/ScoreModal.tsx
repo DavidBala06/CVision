@@ -58,7 +58,7 @@ const ScoreModal: React.FC<ScoreModalProps> = ({ candidate, onClose }) => {
         <div className="modal-body">
           {/* Score Bars */}
           <div className="modal-section">
-            <div className="modal-section-title">Score Breakdown</div>
+            <div className="modal-section-title">Match Score Breakdown</div>
             <div className="score-bars">
               {bars.map(bar => (
                 <div key={bar.label} className="score-bar-row">
@@ -116,7 +116,7 @@ const ScoreModal: React.FC<ScoreModalProps> = ({ candidate, onClose }) => {
           {/* Citation */}
           {citation && (
             <div className="modal-section">
-              <div className="modal-section-title">Match Reason</div>
+              <div className="modal-section-title">Why This Candidate</div>
               <div className="modal-citation">{citation}</div>
             </div>
           )}
