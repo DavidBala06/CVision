@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Aurora from './Aurora';
 import './LoginPage.css';
 
 interface LoginPageProps {
@@ -42,11 +43,31 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
   return (
     <div className="login-page">
+      {/* Aurora animated background */}
+      <div className="login-aurora-bg">
+        <Aurora
+          colorStops={["#6366f1", "#8b5cf6", "#4f46e5"]}
+          blend={0.6}
+          amplitude={1.2}
+          speed={0.8}
+        />
+      </div>
+
+      {/* Corner branding */}
+      <div className="login-corner-brand">
+        <div>
+          <div className="login-corner-name">TalentAI</div>
+          <div className="login-corner-sub">by CVision</div>
+        </div>
+      </div>
+
+      {/* Login card */}
       <div className="login-card">
-        <div className="login-brand">
-          <div className="login-brand-icon">⚡</div>
-          <div className="login-brand-name">TalentAI</div>
-          <div className="login-brand-sub">Intelligent Recruitment Platform</div>
+        <div className="login-hero">
+          <div className="login-hero-title">Your talent pipeline, on autopilot.</div>
+          <div className="login-hero-subtitle">
+            From CV to shortlist in seconds. No black boxes. No missed candidates.
+          </div>
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
