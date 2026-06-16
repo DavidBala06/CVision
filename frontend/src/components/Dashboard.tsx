@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import './Dashboard.css';
 import type { PoolCandidate } from '../App';
 import HealthBanner from './HealthBanner';
+import PendingActions from './PendingActions';
 
 interface DashboardProps {
   candidates: PoolCandidate[];
   onRefresh: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ candidates, onRefresh }) => {
+const Dashboard: React.FC<DashboardProps> = ({ candidates, onRefresh, onNavigate }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSeniority, setFilterSeniority] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -75,8 +77,11 @@ const Dashboard: React.FC<DashboardProps> = ({ candidates, onRefresh }) => {
 
   return (
     <div className="dashboard">
-      {/* Feature 5: Live Pool Health Banner */}
+      {/* Live Pool Health Banner */}
       <HealthBanner candidates={candidates} />
+
+      {/* Pending Actions — HiredScore-style */}
+      <PendingActions onNavigate={onNavigate} />
 
       <div className="section-header">
         <div>
