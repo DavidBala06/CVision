@@ -1,0 +1,106 @@
+.applications-pool {
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.ap-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.ap-back-btn {
+  flex-shrink: 0;
+}
+
+.ap-category-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ap-cat-btn {
+  padding: 0.75rem 1.25rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ap-cat-btn:hover {
+  color: var(--text-secondary);
+}
+
+.ap-cat-btn.active {
+  color: var(--accent-secondary);
+}
+
+.ap-cat-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0.5rem;
+  right: 0.5rem;
+  height: 2px;
+  background: var(--accent-primary);
+  border-radius: 2px 2px 0 0;
+}
+
+.ap-cat-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 0.35rem;
+  border-radius: var(--radius-full);
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--accent-secondary);
+}
+
+/* Step badges */
+.step-badge {
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.step-applied { background: rgba(99, 102, 241, 0.12); color: #818cf8; }
+.step-screening { background: rgba(59, 130, 246, 0.12); color: #60a5fa; }
+.step-interview { background: rgba(245, 158, 11, 0.12); color: #fbbf24; }
+.step-offer { background: rgba(34, 197, 94, 0.12); color: #4ade80; }
+.step-hired { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+.step-rejected { background: rgba(239, 68, 68, 0.12); color: #f87171; }
+
+.source-badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-xs);
+  font-size: 0.7rem;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.cell-education {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -1,244 +1,188 @@
 .candidate-card {
-  background-color: var(--bg-card);
-  border-radius: var(--radius-lg);
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
-  box-shadow: var(--shadow-sm);
-  transition: var(--transition-base);
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
   position: relative;
   overflow: hidden;
-}
-
-.candidate-card.card-selected {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px var(--accent-primary-glow), var(--shadow-md);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .candidate-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--border-color-subtle);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
-/* Theme border on the left */
+.card-selected {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px var(--accent-primary);
+}
+
+/* Compare Checkbox */
+.compare-checkbox-label {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  z-index: 10;
+  transition: color var(--transition-fast);
+}
+
+.compare-checkbox-label:hover {
+  color: var(--text-primary);
+}
+
+.compare-checkbox {
+  display: none;
+}
+
+.compare-checkbox-box {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: transparent;
+  background: var(--bg-input);
+  transition: all var(--transition-fast);
+}
+
+.compare-checkbox:checked + .compare-checkbox-box {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: white;
+}
+
+/* Theme accent lines */
 .candidate-card::before {
   content: '';
   position: absolute;
-  left: 0;
   top: 0;
-  bottom: 0;
-  width: 4px;
+  left: 0;
+  width: 100%;
+  height: 4px;
 }
+.theme-purple::before { background: var(--theme-purple); }
+.theme-green::before { background: var(--theme-green); }
+.theme-blue::before { background: var(--theme-blue); }
 
-.candidate-card.theme-purple::before { background-color: var(--theme-purple); }
-.candidate-card.theme-green::before { background-color: var(--theme-green); }
-.candidate-card.theme-blue::before { background-color: var(--theme-blue); }
-
-/* Header */
 .card-header {
   display: flex;
   align-items: center;
   gap: 1rem;
+  padding-right: 4rem; /* space for compare checkbox */
 }
 
 .avatar-circle {
   width: 48px;
   height: 48px;
-  border-radius: var(--radius-full);
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 1.1rem;
-  color: #ffffff;
+  color: white;
 }
-
-.candidate-card.theme-purple .avatar-circle { background-color: var(--theme-purple); }
-.candidate-card.theme-green .avatar-circle { background-color: var(--theme-green); }
-.candidate-card.theme-blue .avatar-circle { background-color: var(--theme-blue); }
+.theme-purple .avatar-circle { background: linear-gradient(135deg, var(--theme-purple), #9f67ff); }
+.theme-green .avatar-circle { background: linear-gradient(135deg, var(--theme-green), #10b981); }
+.theme-blue .avatar-circle { background: linear-gradient(135deg, var(--theme-blue), #60a5fa); }
 
 .candidate-info h3 {
-  font-size: 1.125rem;
-  font-weight: 600;
+  margin: 0 0 0.2rem 0;
+  font-size: 1.1rem;
   color: var(--text-primary);
-  margin-bottom: 0.25rem;
 }
 
 .role-text {
-  font-size: 0.875rem;
+  margin: 0;
+  font-size: 0.85rem;
   color: var(--text-secondary);
 }
 
 .rank-badge {
   margin-left: auto;
+  padding: 0.3rem 0.8rem;
+  border-radius: var(--radius-full);
   font-size: 0.75rem;
   font-weight: 700;
-  padding: 0.25rem 0.75rem;
-  border-radius: var(--radius-full);
-  text-transform: uppercase;
+  background: rgba(255,255,255,0.05);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
-
-.candidate-card.theme-purple .rank-badge { background-color: rgba(124, 58, 237, 0.15); color: #c4b5fd; }
-.candidate-card.theme-green .rank-badge { background-color: rgba(5, 150, 105, 0.15); color: #6ee7b7; }
-.candidate-card.theme-blue .rank-badge { background-color: rgba(37, 99, 235, 0.15); color: #93c5fd; }
 
 /* Scores */
 .scores-row {
   display: flex;
-  align-items: center;
-  background-color: var(--bg-surface);
-  border-radius: var(--radius-md);
+  gap: 1.5rem;
   padding: 1rem;
-  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color-subtle);
 }
 
 .main-score {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: center;
-  padding-right: 1rem;
+  padding-right: 1.5rem;
   border-right: 1px solid var(--border-color);
-  margin-right: 1rem;
 }
 
 .score-value {
   font-size: 1.5rem;
   font-weight: 800;
+  color: var(--accent-success);
 }
 
-.candidate-card.theme-purple .score-value { color: #a78bfa; }
-.candidate-card.theme-green .score-value { color: #34d399; }
-.candidate-card.theme-blue .score-value { color: #60a5fa; }
-
 .score-label {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  font-weight: 600;
+  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
 }
 
 .sub-scores {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 1.5rem;
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
 }
 
 .score-item {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 0.8rem;
 }
 
-.score-item .label {
-  color: var(--text-secondary);
-}
+.score-item .label { color: var(--text-secondary); }
+.score-item .value { font-weight: 600; color: var(--text-primary); }
 
-.score-item .value {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-/* ═══════════════════════════════════════════
-   SKILL BREAKDOWN — expandable per-skill detail
-   ═══════════════════════════════════════════ */
-.skill-breakdown-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.breakdown-toggle {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  font-family: var(--font-family);
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: left;
-  padding: 0.25rem 0;
-  transition: var(--transition-fast);
-}
-
-.breakdown-toggle:hover {
-  color: var(--accent-secondary);
-}
-
-.breakdown-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.breakdown-item {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.55rem;
-  border-radius: var(--radius-full);
-  font-size: 0.7rem;
-  border: 1px solid transparent;
-}
-
-.breakdown-item.match-exact {
-  background: rgba(34, 197, 94, 0.08);
-  border-color: rgba(34, 197, 94, 0.2);
-}
-
-.breakdown-item.match-similar {
-  background: rgba(245, 158, 11, 0.08);
-  border-color: rgba(245, 158, 11, 0.2);
-}
-
-.breakdown-item.match-none {
-  background: rgba(239, 68, 68, 0.06);
-  border-color: rgba(239, 68, 68, 0.12);
-}
-
-.breakdown-skill {
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.breakdown-badge {
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.badge-exact { color: #4ade80; }
-.badge-similar { color: #fbbf24; }
-.badge-none { color: #f87171; }
-
-/* Citation Box */
 .citation-box {
-  display: flex;
-  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-accent);
+  background: rgba(99, 102, 241, 0.05);
   padding: 0.75rem 1rem;
-  background-color: rgba(255, 255, 255, 0.03);
-  border-left: 2px solid var(--accent-secondary);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  font-style: italic;
-  margin-bottom: 0.5rem;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent-primary);
+  line-height: 1.5;
 }
 
-.citation-icon {
-  font-style: normal;
-  font-size: 1rem;
-}
-
-.citation-text {
-  line-height: 1.4;
-}
-
-/* Body & Tags */
 .card-body {
   display: flex;
   flex-direction: column;
@@ -248,114 +192,106 @@
 .tags-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 0.4rem;
 }
 
 .skill-tag {
-  background-color: var(--bg-input);
-  color: var(--text-primary);
-  font-size: 0.75rem;
-  font-weight: 500;
-  padding: 0.35rem 0.75rem;
-  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  padding: 0.2rem 0.6rem;
+  background: rgba(255,255,255,0.04);
   border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
 }
 
 .languages-info {
-  font-size: 0.8125rem;
-  color: var(--text-primary);
-  border-top: 1px solid var(--border-color);
-  padding-top: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
 }
 
-.languages-info strong {
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-/* Footer */
 .card-footer {
-  border-top: 1px solid var(--border-color);
+  display: flex;
+  gap: 0.75rem;
+  margin-top: auto;
   padding-top: 1rem;
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.linkedin-btn {
-  font-size: 0.75rem;
-  text-decoration: none;
-}
-
-.draft-email-btn {
-  font-size: 0.75rem;
-}
-
-/* ═══════════════════════════════════════════
-   COMPARE CHECKBOX
-   ═══════════════════════════════════════════ */
-.compare-checkbox-label {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  display: flex;
+  border-top: 1px solid var(--border-color-subtle);
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.68rem;
+}
+
+/* Assign Dropdown */
+.assign-job-container {
+  position: relative;
+}
+
+.assign-dropdown {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+  width: 240px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 50;
+  overflow: hidden;
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.assign-dropdown-header {
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-muted);
-  cursor: pointer;
-  z-index: 2;
-  user-select: none;
-  transition: color var(--transition-fast);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
 }
 
-.compare-checkbox-label:hover { color: var(--accent-secondary); }
-
-.compare-checkbox { display: none; }
-
-.compare-checkbox-box {
-  width: 16px;
-  height: 16px;
-  border: 1.5px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-input);
+.assign-dropdown-list {
+  max-height: 200px;
+  overflow-y: auto;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.65rem;
-  font-weight: 800;
-  color: #fff;
-  transition: var(--transition-fast);
+  flex-direction: column;
 }
 
-.compare-checkbox:checked + .compare-checkbox-box {
-  background: var(--accent-primary);
-  border-color: var(--accent-primary);
-}
-
-/* ═══════════════════════════════════════════
-   WHY THIS SCORE BUTTON
-   ═══════════════════════════════════════════ */
-.why-score-btn {
-  background: rgba(99, 102, 241, 0.07);
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  border-radius: var(--radius-sm);
-  color: var(--accent-secondary);
+.assign-dropdown-item {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-color-subtle);
+  color: var(--text-primary);
   font-family: var(--font-family);
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.85rem;
   cursor: pointer;
-  padding: 0.4rem 0.75rem;
-  width: 100%;
-  text-align: center;
-  transition: var(--transition-fast);
-  letter-spacing: 0.01em;
+  transition: background var(--transition-fast);
 }
 
-.why-score-btn:hover {
-  background: rgba(99, 102, 241, 0.14);
-  border-color: rgba(99, 102, 241, 0.4);
-  transform: translateY(-1px);
-}
+.assign-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.assign-dropdown-item:hover {
+  background: var(--bg-table-row-hover);
+}
+
+.assign-dropdown-empty {
+  padding: 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.assign-success-msg {
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  color: var(--accent-success);
+  background: rgba(34, 197, 94, 0.1);
+  text-align: center;
+}

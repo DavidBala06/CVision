@@ -78,15 +78,15 @@ const HealthBanner: React.FC<HealthBannerProps> = ({ candidates }) => {
       label: 'Total Candidates',
       sub: 'in talent pool',
       color: '#6366f1',
-      icon: '👥',
+      icon: 'Total',
     },
     {
       id: 'stat-stale',
       value: staleAnimated,
       label: 'Need Refresh',
-      sub: staleCount === 0 ? 'All up to date ✓' : 'profiles >3 months old',
+      sub: staleCount === 0 ? 'All up to date' : 'profiles >3 months old',
       color: staleCount === 0 ? '#4ade80' : '#f87171',
-      icon: '🔄',
+      icon: 'Stale',
     },
     {
       id: 'stat-contacted',
@@ -94,7 +94,7 @@ const HealthBanner: React.FC<HealthBannerProps> = ({ candidates }) => {
       label: 'Contacted',
       sub: 'outreach this week',
       color: '#06b6d4',
-      icon: '📬',
+      icon: 'Outreach',
     },
     {
       id: 'stat-health',
@@ -102,7 +102,7 @@ const HealthBanner: React.FC<HealthBannerProps> = ({ candidates }) => {
       label: 'Pool Health',
       sub: 'fresh profiles ratio',
       color: healthColor,
-      icon: '💚',
+      icon: 'Health',
       isText: true,
     },
   ];

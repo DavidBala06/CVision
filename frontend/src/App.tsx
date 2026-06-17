@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import LoginPage from './components/LoginPage';
 import ChatArea from './components/ChatArea';
 import Dashboard from './components/Dashboard';
+import HiringRequests from './components/HiringRequests';
+import ApplicationsPool from './components/ApplicationsPool';
 import UploadCV from './components/UploadCV';
 import Outreach from './components/Outreach';
 import GitHubSearch from './components/GitHubSearch';
 import Metrics from './components/Metrics';
+import AiAssistant from './components/AiAssistant';
 import './index.css';
 
 export interface Candidate {
@@ -61,7 +64,7 @@ interface AuthUser {
   username: string;
 }
 
-type TabId = 'dashboard' | 'shortlist' | 'upload' | 'outreach' | 'github' | 'metrics';
+type TabId = 'dashboard' | 'hiring' | 'applications' | 'shortlist' | 'upload' | 'outreach' | 'github' | 'metrics';
 
 function App() {
   // Auth state
@@ -72,6 +75,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   const [poolCandidates, setPoolCandidates] = useState<PoolCandidate[]>([]);
   const [preselectedCandidate, setPreselectedCandidate] = useState<string>('');
+  const [selectedHiringRequestId, setSelectedHiringRequestId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -182,15 +186,30 @@ function App() {
   };
 
   const handleNavigateTab = (tab: string) => {
-    if (['dashboard', 'shortlist', 'upload', 'outreach', 'github', 'metrics'].includes(tab)) {
+    if (['dashboard', 'hiring', 'applications', 'shortlist', 'upload', 'outreach', 'github', 'metrics'].includes(tab)) {
       setActiveTab(tab as TabId);
     }
+  };
+
+  const handleOpenApplications = (hiringRequestId: number) => {
+    setSelectedHiringRequestId(hiringRequestId);
+    setActiveTab('applications');
   };
 
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard candidates={poolCandidates} onRefresh={fetchCandidates} onNavigate={handleNavigateTab} />;
+      case 'hiring':
+        return <HiringRequests onOpenApplications={handleOpenApplications} />;
+      case 'applications':
+        return (
+          <ApplicationsPool
+            hiringRequestId={selectedHiringRequestId}
+            onBack={() => setActiveTab('hiring')}
+            onEngage={(name) => { setPreselectedCandidate(name); setActiveTab('outreach'); }}
+          />
+        );
       case 'shortlist':
         return <ChatArea messages={messages} onSendMessage={handleHRQuery} isLoading={isLoading} onDraftEmail={handleDraftEmail} />;
       case 'upload':
@@ -206,13 +225,15 @@ function App() {
     }
   };
 
-  const tabs: { id: TabId; label: string; icon: string }[] = [
+  const tabs: { id: TabId; label: string; icon: string; hidden?: boolean }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: '' },
-    { id: 'shortlist', label: 'Shortlist', icon: '' },
-    { id: 'upload', label: 'Add Candidate', icon: '' },
-    { id: 'outreach', label: 'Outreach', icon: '' },
-    { id: 'github', label: 'Source', icon: '' },
-    { id: 'metrics', label: 'Metrics', icon: '' },
+    { id: 'hiring', label: 'Hiring Requests', icon: '' },
+    { id: 'applications', label: 'Applications', icon: '', hidden: true },
+    { id: 'shortlist', label: 'Find & Match', icon: '' },
+    { id: 'upload', label: 'Add Profile', icon: '' },
+    { id: 'outreach', label: 'Engage', icon: '' },
+    { id: 'github', label: 'Sources', icon: '' },
+    { id: 'metrics', label: 'Analytics', icon: '' },
   ];
 
   // --- RENDER ---
@@ -233,14 +254,14 @@ function App() {
             </div>
           </div>
           <div className="navbar-tabs">
-            {tabs.map(tab => (
+            {tabs.filter(t => !t.hidden).map(tab => (
               <button
                 key={tab.id}
                 id={`nav-tab-${tab.id}`}
                 className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
                 onClick={() => setActiveTab(tab.id)}
               >
-                <span className="tab-icon">{tab.icon}</span> {tab.label}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -265,6 +286,9 @@ function App() {
           {renderActiveTab()}
         </div>
       </main>
+
+      {/* Floating AI Assistant */}
+      <AiAssistant onSendMessage={handleHRQuery} messages={messages} isLoading={isLoading} />
     </div>
   );
 }

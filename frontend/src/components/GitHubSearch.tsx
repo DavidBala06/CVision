@@ -60,7 +60,7 @@ const GitHubSearch: React.FC = () => {
           <h3 className="profile-name">{profile.name}</h3>
           <span className="profile-username">@{profile.username}</span>
           {profile.location && (
-            <span className="profile-location">📍 {profile.location}</span>
+            <span className="profile-location">{profile.location}</span>
           )}
         </div>
         <div className="profile-card-stats">
@@ -94,8 +94,8 @@ const GitHubSearch: React.FC = () => {
                 <div className="repo-name">{repo.name}</div>
                 <div className="repo-meta">
                   {repo.language && <span className="repo-lang">{repo.language}</span>}
-                  <span className="repo-stars">⭐ {repo.stars}</span>
-                  {repo.forks > 0 && <span className="repo-forks">🔀 {repo.forks}</span>}
+                  <span className="repo-stars">Stars: {repo.stars}</span>
+                  {repo.forks > 0 && <span className="repo-forks">Forks: {repo.forks}</span>}
                 </div>
                 {repo.description && <div className="repo-desc">{repo.description}</div>}
               </a>
@@ -119,7 +119,7 @@ const GitHubSearch: React.FC = () => {
     <div className="github-search">
       <div className="section-header">
         <div>
-          <div className="section-title">Source from GitHub</div>
+          <div className="section-title">Sources</div>
           <div className="section-subtitle">Search developers by role requirements or find similar profiles</div>
         </div>
       </div>
@@ -137,7 +137,7 @@ const GitHubSearch: React.FC = () => {
               className={`toggle-btn ${searchType === 'profile' ? 'active' : ''}`}
               onClick={() => setSearchType('profile')}
             >
-              👤 Find Similar Devs
+              Find Similar Devs
             </button>
           </div>
 
@@ -166,7 +166,7 @@ const GitHubSearch: React.FC = () => {
           <div className="strategy-section">
             {result.search_strategy.sourcing_tips && (
               <div className="result-card">
-                <div className="result-card-title">💡 Sourcing Tips</div>
+                <div className="result-card-title">Sourcing Tips</div>
                 <ul className="tips-list">
                   {result.search_strategy.sourcing_tips.map((tip: string, i: number) => (
                     <li key={i}>{tip}</li>
@@ -177,7 +177,7 @@ const GitHubSearch: React.FC = () => {
             {result.search_strategy.search_query && (
               <div className="result-card">
                 <div className="result-card-header">
-                  <span className="result-card-title">🔎 Search Query Used</span>
+                  <span className="result-card-title">Search Query Used</span>
                 </div>
                 <div className="result-value code">{result.search_strategy.search_query}</div>
               </div>
@@ -205,7 +205,7 @@ const GitHubSearch: React.FC = () => {
           <div className="profiles-section">
             <div className="profiles-header">
               <span className="profiles-label">
-                {result?.similar_profiles ? '👥 Similar Developers' : '👥 Matching Developers'}
+                {result?.similar_profiles ? 'Similar Developers' : 'Matching Developers'}
               </span>
               <span className="profiles-count">{profiles.length} found</span>
             </div>

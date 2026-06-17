@@ -14,9 +14,9 @@ interface PendingActionsProps {
 }
 
 const ACTION_CONFIG: Record<string, { icon: string; iconClass: string; actionLabel: string; targetTab: string }> = {
-  stale_profiles: { icon: '🔄', iconClass: 'icon-stale', actionLabel: 'Refresh Profiles', targetTab: 'dashboard' },
-  follow_up_needed: { icon: '📩', iconClass: 'icon-followup', actionLabel: 'View Outreach', targetTab: 'outreach' },
-  new_applications: { icon: '📋', iconClass: 'icon-new', actionLabel: 'Review Candidates', targetTab: 'dashboard' },
+  stale_profiles: { icon: 'Refresh', iconClass: 'icon-stale', actionLabel: 'Refresh Profiles', targetTab: 'dashboard' },
+  follow_up_needed: { icon: 'Mail', iconClass: 'icon-followup', actionLabel: 'View Outreach', targetTab: 'outreach' },
+  new_applications: { icon: 'List', iconClass: 'icon-new', actionLabel: 'Review Candidates', targetTab: 'dashboard' },
 };
 
 const PendingActions: React.FC<PendingActionsProps> = ({ onNavigate }) => {
@@ -58,14 +58,14 @@ const PendingActions: React.FC<PendingActionsProps> = ({ onNavigate }) => {
 
       {actions.length === 0 ? (
         <div className="actions-clear">
-          <span className="actions-clear-icon">✓</span>
+          <span className="actions-clear-icon">All Clear</span>
           All caught up — no pending actions right now.
         </div>
       ) : (
         <div className="actions-grid">
           {actions.map((action) => {
             const config = ACTION_CONFIG[action.type] || {
-              icon: '📌',
+              icon: 'Alert',
               iconClass: 'icon-new',
               actionLabel: 'View',
               targetTab: 'dashboard',
@@ -93,7 +93,7 @@ const PendingActions: React.FC<PendingActionsProps> = ({ onNavigate }) => {
                     className="action-btn"
                     onClick={() => onNavigate?.(config.targetTab)}
                   >
-                    {config.actionLabel} →
+                    {config.actionLabel}
                   </button>
                 </div>
               </div>

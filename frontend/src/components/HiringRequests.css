@@ -1,0 +1,94 @@
+.hiring-requests {
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.hr-filters {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.hr-filters .filter-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background: var(--bg-table-row-hover) !important;
+}
+
+.job-title-text {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 0.5rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--accent-secondary);
+}
+
+.count-badge.count-progress {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+}
+
+/* Table container - shared styles */
+.table-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 1.5rem 1.5rem;
+}
+
+.talent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.talent-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.talent-table th {
+  padding: 0.75rem 0.85rem;
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: var(--bg-table-header);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.talent-table td {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--border-color-subtle);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.table-row:hover {
+  background: var(--bg-table-row-hover);
+}

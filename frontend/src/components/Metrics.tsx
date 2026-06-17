@@ -63,7 +63,7 @@ const Metrics: React.FC = () => {
     <div className="metrics">
       <div className="section-header">
         <div>
-          <div className="section-title">Recruitment Analytics</div>
+          <div className="section-title">Analytics</div>
           <div className="section-subtitle">Pool health, hiring funnel & compliance overview</div>
         </div>
       </div>
@@ -143,7 +143,7 @@ const Metrics: React.FC = () => {
         <div className="metrics-section">
           <h3 className="metrics-section-title">GDPR Compliance</h3>
           <div className="gdpr-card">
-            <div className="gdpr-item">All data stored locally (CSV — no external servers)</div>
+            <div className="gdpr-item">All data stored locally (PostgreSQL database)</div>
             <div className="gdpr-item">Consent tracking per candidate (active / pending_consent)</div>
             <div className="gdpr-item">Data retention: 12 months (CV), 3 months (scrape)</div>
             <div className="gdpr-item">Human-in-the-Loop: all actions require HR approval</div>

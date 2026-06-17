@@ -93,7 +93,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ messages, onSendMessage, isLoading,
               className="toolbar-btn toolbar-btn-export"
               onClick={handleExportCSV}
             >
-              ⬇ Export CSV
+              Export CSV
             </button>
           )}
         </div>
