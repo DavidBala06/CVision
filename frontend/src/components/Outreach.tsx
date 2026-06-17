@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react';
 import './Outreach.css';
 import type { PoolCandidate } from '../App';
 
+interface JobOpening {
+  id: number;
+  job_title: string;
+  description: string;
+  location: string;
+}
+
 interface OutreachProps {
   candidates: PoolCandidate[];
   preselectedCandidate?: string;
@@ -18,6 +25,8 @@ interface OutreachCandidate {
 
 const Outreach: React.FC<OutreachProps> = ({ candidates, preselectedCandidate }) => {
   const [selectedCandidate, setSelectedCandidate] = useState('');
+  const [selectedJobId, setSelectedJobId] = useState<string>('');
+  const [jobs, setJobs] = useState<JobOpening[]>([]);
   const [jobDescription, setJobDescription] = useState('');
   const [emailDraft, setEmailDraft] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -26,6 +35,7 @@ const Outreach: React.FC<OutreachProps> = ({ candidates, preselectedCandidate })
 
   useEffect(() => {
     fetchOutreachStatus();
+    fetchJobs();
   }, []);
 
   // Auto-select candidate when navigated from shortlist "Draft Email"
@@ -36,6 +46,18 @@ const Outreach: React.FC<OutreachProps> = ({ candidates, preselectedCandidate })
     }
   }, [preselectedCandidate]);
 
+  const fetchJobs = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/job-openings');
+      if (res.ok) {
+        const data = await res.json();
+        setJobs(data);
+      }
+    } catch (err) {
+      console.error('Failed to load jobs:', err);
+    }
+  };
+
   const fetchOutreachStatus = async () => {
     try {
       const res = await fetch('http://127.0.0.1:8000/api/outreach-status');
@@ -45,6 +67,18 @@ const Outreach: React.FC<OutreachProps> = ({ candidates, preselectedCandidate })
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleJobSelect = (jobId: string) => {
+    setSelectedJobId(jobId);
+    if (jobId) {
+      const job = jobs.find(j => j.id.toString() === jobId);
+      if (job) {
+        setJobDescription(`${job.job_title} - ${job.location}\n\n${job.description}`);
+      }
+    } else {
+      setJobDescription('');
     }
   };
 
@@ -127,7 +161,7 @@ const Outreach: React.FC<OutreachProps> = ({ candidates, preselectedCandidate })
     <div className="outreach">
       <div className="section-header">
         <div>
-          <div className="section-title">Outreach Pipeline</div>
+          <div className="section-title">Engage</div>
           <div className="section-subtitle">Email drafts, follow-ups & candidate tracking</div>
         </div>
         <div className="outreach-tabs">
@@ -149,7 +183,17 @@ const Outreach: React.FC<OutreachProps> = ({ candidates, preselectedCandidate })
                 <select className="form-select" value={selectedCandidate} onChange={e => setSelectedCandidate(e.target.value)}>
                   <option value="">Choose a candidate...</option>
                   {candidates.map((c, i) => (
-                    <option key={i} value={c.name}>{c.name} — {c.current_role || c.seniority}</option>
+                    <option key={i} value={c.name}>{c.name} - {c.current_role || c.seniority}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Select Job Opening (Optional)</label>
+                <select className="form-select" value={selectedJobId} onChange={e => handleJobSelect(e.target.value)}>
+                  <option value="">Custom Outreach...</option>
+                  {jobs.map((j) => (
+                    <option key={j.id} value={j.id}>{j.job_title} - {j.location}</option>
                   ))}
                 </select>
               </div>
@@ -173,9 +217,9 @@ const Outreach: React.FC<OutreachProps> = ({ candidates, preselectedCandidate })
             {emailDraft && (
               <div className="email-preview">
                 <div className="preview-header">
-                  <span className="preview-title">📧 Email Draft for {selectedCandidate}</span>
+                  <span className="preview-title">Email Draft for {selectedCandidate}</span>
                   <div className="preview-actions">
-                    <button className="btn btn-sm btn-secondary" onClick={copyToClipboard}>📋 Copy</button>
+                    <button className="btn btn-sm btn-secondary" onClick={copyToClipboard}>Copy</button>
                     <button className="btn btn-sm btn-success" onClick={handleMarkAsSent}>Mark as Sent</button>
                   </div>
                 </div>
@@ -217,14 +261,14 @@ const Outreach: React.FC<OutreachProps> = ({ candidates, preselectedCandidate })
                   {outreachData.candidates.map((c, i) => (
                     <tr key={i} className="table-row">
                       <td className="name-text">{c.name}</td>
-                      <td>{c.current_role || '—'}</td>
-                      <td className="name-email">{c.email || '—'}</td>
+                      <td>{c.current_role || '-'}</td>
+                      <td className="name-email">{c.email || '-'}</td>
                       <td>{getStatusBadge(c.outreach_status)}</td>
-                      <td>{c.outreach_date || '—'}</td>
+                      <td>{c.outreach_date || '-'}</td>
                       <td className="action-cell">
                         {c.needs_followup && (
                           <button className="btn btn-sm btn-secondary" onClick={() => handleGenerateFollowup(c.name)}>
-                            📩 Follow-up
+                            Follow-up
                           </button>
                         )}
                         {c.outreach_status === 'email_sent' && (
@@ -239,7 +283,6 @@ const Outreach: React.FC<OutreachProps> = ({ candidates, preselectedCandidate })
                   {outreachData.candidates.length === 0 && (
                     <tr><td colSpan={6}>
                       <div className="empty-state">
-                        <div className="empty-state-icon">📭</div>
                         <div className="empty-state-text">No outreach activity yet. Compose your first email!</div>
                       </div>
                     </td></tr>
