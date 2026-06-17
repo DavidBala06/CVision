@@ -1,12 +1,11 @@
 """
-Outreach Agent 
+Outreach Agent
 
 Handles:
 Personalized email drafts (candidate + job -> email)
 Progress monitoring + follow-up drafts
 """
 import os
-import csv
 from pathlib import Path
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -20,7 +19,6 @@ from ai.guardrails import get_system_guardrail_prompt
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-CSV_PATH = Path(os.getenv("CSV_PATH", str(BASE_DIR / "data" / "talent_pool.csv")))
 
 
 def get_llm():
@@ -33,9 +31,7 @@ def get_llm():
 
 
 def generate_email_draft(candidate: dict, job_description: str) -> str:
-    
-    # Generate a personalized outreach email
-    
+    """Generate a personalized outreach email."""
     llm = get_llm()
 
     prompt = ChatPromptTemplate.from_messages([
@@ -49,7 +45,7 @@ RULES:
 4. Include a clear call-to-action (schedule a call, reply with interest).
 5. Do NOT include fake information. Only reference what's in the candidate profile.
 6. Write in English unless the candidate's languages suggest otherwise.
-7. Do NOT include email headers (To, From, Subject) — just the body.
+7. Do NOT include email headers (To, From, Subject) -- just the body.
 """),
         ("human", """CANDIDATE PROFILE:
 Name: {name}
@@ -83,9 +79,7 @@ Write a personalized outreach email to this candidate about this job opportunity
 
 
 def generate_followup_draft(candidate: dict, original_email: str = "", days_since: int = 7) -> str:
-    
-    # Generate follow-up email for non-replies.
-    
+    """Generate follow-up email for non-replies."""
     llm = get_llm()
 
     prompt = ChatPromptTemplate.from_messages([
@@ -118,54 +112,50 @@ Write a short, friendly follow-up email to this candidate who hasn't replied."""
 
 
 def update_outreach_status(candidate_name: str, status: str) -> bool:
-    #Update a candidate's outreach status in the CSV
-    if not CSV_PATH.exists():
-        return False
+    """Update a candidate's outreach status in the database."""
+    from database import get_session, Candidate
 
     valid_statuses = ["not_contacted", "email_sent", "replied", "no_reply", "interested", "declined"]
     if status not in valid_statuses:
         return False
 
-    rows = []
-    updated = False
+    session = get_session()
+    try:
+        candidate = session.query(Candidate).filter(
+            Candidate.name.ilike(candidate_name.strip())
+        ).first()
+        if not candidate:
+            return False
 
-    with open(CSV_PATH, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        fieldnames = reader.fieldnames
-        for row in reader:
-            if row.get("name", "").strip().lower() == candidate_name.strip().lower():
-                row["outreach_status"] = status
-                if status == "email_sent":
-                    row["outreach_date"] = datetime.now().strftime("%Y-%m-%d")
-                updated = True
-            rows.append(row)
-
-    if updated:
-        with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
-
-    return updated
+        candidate.outreach_status = status
+        if status == "email_sent":
+            candidate.outreach_date = datetime.now().strftime("%Y-%m-%d")
+        session.commit()
+        return True
+    except Exception as e:
+        session.rollback()
+        print(f"Error updating outreach status: {e}")
+        return False
+    finally:
+        session.close()
 
 
 def get_outreach_dashboard() -> dict:
-    # Get outreach progress monitoring data.
-    if not CSV_PATH.exists():
-        return {"candidates": [], "summary": {}}
+    """Get outreach progress monitoring data."""
+    from database import get_session, Candidate
 
-    candidates = []
-    summary = {"not_contacted": 0, "email_sent": 0, "replied": 0, "no_reply": 0, "interested": 0, "declined": 0}
+    session = get_session()
+    try:
+        candidates_list = []
+        summary = {"not_contacted": 0, "email_sent": 0, "replied": 0, "no_reply": 0, "interested": 0, "declined": 0}
 
-    with open(CSV_PATH, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            outreach_status = row.get("outreach_status", "not_contacted")
-            outreach_date = row.get("outreach_date", "")
-            
+        all_candidates = session.query(Candidate).all()
+        for c in all_candidates:
+            outreach_status = c.outreach_status or "not_contacted"
+            outreach_date = c.outreach_date or ""
+
             summary[outreach_status] = summary.get(outreach_status, 0) + 1
 
-            # Flag candidates needing follow-up
             needs_followup = False
             if outreach_status == "email_sent" and outreach_date:
                 try:
@@ -176,13 +166,15 @@ def get_outreach_dashboard() -> dict:
                     pass
 
             if outreach_status != "not_contacted":
-                candidates.append({
-                    "name": row.get("name", ""),
-                    "current_role": row.get("current_role", ""),
-                    "email": row.get("email", ""),
+                candidates_list.append({
+                    "name": c.name or "",
+                    "current_role": c.current_role or "",
+                    "email": c.email or "",
                     "outreach_status": outreach_status,
                     "outreach_date": outreach_date,
                     "needs_followup": needs_followup,
                 })
 
-    return {"candidates": candidates, "summary": summary}
+        return {"candidates": candidates_list, "summary": summary}
+    finally:
+        session.close()

@@ -282,99 +282,119 @@ def extract_from_github_url(github_url: str) -> dict:
 
 def check_duplicate(name: str, email: str = "", linkedin_url: str = "") -> dict | None:
     """
-    Check if a candidate already exists in the talent pool.
-    Returns the existing row if found, None otherwise.
+    Check if a candidate already exists in the talent pool (DB).
+    Returns the existing row dict if found, None otherwise.
     """
-    if not CSV_PATH.exists():
-        return None
-    
-    with open(CSV_PATH, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            # Match by name (case-insensitive)
-            if row.get("name", "").strip().lower() == name.strip().lower():
-                return row
-            # Match by email
-            if email and row.get("email", "").strip().lower() == email.strip().lower():
-                return row
-            # Match by LinkedIn URL
-            if linkedin_url and row.get("linkedin_url", "").strip().lower() == linkedin_url.strip().lower():
-                return row
-    
+    from database import get_session, Candidate
+
+    session = get_session()
+    try:
+        if name:
+            c = session.query(Candidate).filter(
+                Candidate.name.ilike(name.strip())
+            ).first()
+            if c:
+                return c.to_dict()
+
+        if email:
+            c = session.query(Candidate).filter(
+                Candidate.email.ilike(email.strip())
+            ).first()
+            if c:
+                return c.to_dict()
+
+        if linkedin_url:
+            c = session.query(Candidate).filter(
+                Candidate.linkedin_url.ilike(linkedin_url.strip())
+            ).first()
+            if c:
+                return c.to_dict()
+    finally:
+        session.close()
+
     return None
 
 
-def add_candidate_to_csv(candidate_data: dict) -> bool:
+def add_candidate_to_pool(candidate_data: dict) -> bool:
     """
-    Write an approved candidate row to the CSV.
+    Write an approved candidate to the database.
     Called after human-in-the-loop approval.
     """
     from datetime import datetime
-    
-    # Ensure data directory exists
-    CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
-    
-    # Default values for new candidates
+    from database import get_session, Candidate
+
     candidate_data.setdefault("status", "active")
     candidate_data.setdefault("outreach_status", "not_contacted")
     candidate_data.setdefault("outreach_date", "")
     candidate_data.setdefault("last_updated_at", datetime.now().strftime("%Y-%m-%d"))
     candidate_data.setdefault("github_url", "")
-    
-    # Read existing CSV (if exists)
-    file_exists = CSV_PATH.exists()
-    fieldnames = [
-        "name", "seniority", "years_of_experience", "current_role",
-        "previous_jobs", "degrees", "location", "languages",
-        "technologies", "project_summary", "linkedin_url", "github_url",
-        "email", "status", "outreach_status", "outreach_date", "last_updated_at"
-    ]
-    
+
+    session = get_session()
     try:
-        with open(CSV_PATH, "a", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            if not file_exists:
-                writer.writeheader()
-            
-            # Only write fields that exist in fieldnames
-            row = {k: candidate_data.get(k, "") for k in fieldnames}
-            writer.writerow(row)
-        
+        candidate = Candidate(
+            name=candidate_data.get("name", ""),
+            seniority=candidate_data.get("seniority", ""),
+            years_of_experience=candidate_data.get("years_of_experience", ""),
+            current_role=candidate_data.get("current_role", ""),
+            previous_jobs=candidate_data.get("previous_jobs", ""),
+            degrees=candidate_data.get("degrees", ""),
+            location=candidate_data.get("location", ""),
+            languages=candidate_data.get("languages", ""),
+            technologies=candidate_data.get("technologies", ""),
+            project_summary=candidate_data.get("project_summary", ""),
+            linkedin_url=candidate_data.get("linkedin_url", ""),
+            github_url=candidate_data.get("github_url", ""),
+            email=candidate_data.get("email", ""),
+            status=candidate_data.get("status", "active"),
+            outreach_status=candidate_data.get("outreach_status", "not_contacted"),
+            outreach_date=candidate_data.get("outreach_date", ""),
+            last_updated_at=candidate_data.get("last_updated_at", ""),
+        )
+        session.add(candidate)
+        session.commit()
         return True
     except Exception as e:
-        print(f"Error writing to CSV: {e}")
+        session.rollback()
+        print(f"Error adding candidate to DB: {e}")
         return False
+    finally:
+        session.close()
 
 
-def update_candidate_in_csv(name: str, updated_data: dict) -> bool:
+# Backward-compatible aliases
+def add_candidate_to_csv(candidate_data: dict) -> bool:
+    return add_candidate_to_pool(candidate_data)
+
+
+def update_candidate_in_pool(name: str, updated_data: dict) -> bool:
     """
-    Update an existing candidate's data in the CSV (for merge/refresh).
+    Update an existing candidate's data in the database (for merge/refresh).
     """
     from datetime import datetime
-    
-    if not CSV_PATH.exists():
+    from database import get_session, Candidate
+
+    session = get_session()
+    try:
+        candidate = session.query(Candidate).filter(
+            Candidate.name.ilike(name.strip())
+        ).first()
+        if not candidate:
+            return False
+
+        for key, value in updated_data.items():
+            if value and hasattr(candidate, key):
+                setattr(candidate, key, value)
+        candidate.last_updated_at = datetime.now().strftime("%Y-%m-%d")
+        session.commit()
+        return True
+    except Exception as e:
+        session.rollback()
+        print(f"Error updating candidate in DB: {e}")
         return False
-    
-    rows = []
-    updated = False
-    
-    with open(CSV_PATH, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        fieldnames = reader.fieldnames
-        for row in reader:
-            if row.get("name", "").strip().lower() == name.strip().lower():
-                # Merge: update only non-empty new fields
-                for key, value in updated_data.items():
-                    if value and key in row:
-                        row[key] = value
-                row["last_updated_at"] = datetime.now().strftime("%Y-%m-%d")
-                updated = True
-            rows.append(row)
-    
-    if updated:
-        with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
-    
-    return updated
+    finally:
+        session.close()
+
+
+# Backward-compatible alias
+def update_candidate_in_csv(name: str, updated_data: dict) -> bool:
+    return update_candidate_in_pool(name, updated_data)

@@ -1,7 +1,7 @@
 """
 RAG Engine
 
-Shortlisting — scan talent pool CSV, rank candidates for a job.
+Shortlisting -- scan talent pool, rank candidates for a job.
 
 Pipeline:
   1. LLM parses the job description into structured requirements
@@ -9,7 +9,7 @@ Pipeline:
   3. Deterministic scorer (scorer.py) computes weighted scores
   4. Return top N candidates ranked by matchScore
 
-The LLM is used ONLY for JD parsing — all scoring is deterministic
+The LLM is used ONLY for JD parsing -- all scoring is deterministic
 and auditable via the weighted formula in scorer.py.
 """
 import os
@@ -31,78 +31,60 @@ from ai.scorer import parse_job_description, rank_candidates
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-CSV_PATH = Path(os.getenv("CSV_PATH", str(BASE_DIR / "data" / "talent_pool.csv")))
 CHROMA_DB_PATH = str(BASE_DIR / "chroma_csv_storage")
 
 
-def load_csv_as_documents() -> list[Document]:
-    # Load each CSV row as a LangChain Document for vector indexing.
-    if not CSV_PATH.exists():
-        print(f"CSV not found at {CSV_PATH}")
-        return []
+def load_candidates_as_documents() -> list[Document]:
+    """Load each candidate from the database as a LangChain Document for vector indexing."""
+    from database import get_session, Candidate
 
-    documents = []
-    with open(CSV_PATH, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            # Build rich text content from all fields
+    session = get_session()
+    try:
+        candidates = session.query(Candidate).all()
+        documents = []
+        for row in candidates:
+            d = row.to_dict()
             content_parts = [
-                f"Name: {row.get('name', '')}",
-                f"Seniority: {row.get('seniority', '')}",
-                f"Years of Experience: {row.get('years_of_experience', '')}",
-                f"Current Role: {row.get('current_role', '')}",
-                f"Previous Jobs: {row.get('previous_jobs', '')}",
-                f"Degrees: {row.get('degrees', '')}",
-                f"Location: {row.get('location', '')}",
-                f"Languages: {row.get('languages', '')}",
-                f"Technologies: {row.get('technologies', '')}",
-                f"Project Summary: {row.get('project_summary', '')}",
+                f"Name: {d.get('name', '')}",
+                f"Seniority: {d.get('seniority', '')}",
+                f"Years of Experience: {d.get('years_of_experience', '')}",
+                f"Current Role: {d.get('current_role', '')}",
+                f"Previous Jobs: {d.get('previous_jobs', '')}",
+                f"Degrees: {d.get('degrees', '')}",
+                f"Location: {d.get('location', '')}",
+                f"Languages: {d.get('languages', '')}",
+                f"Technologies: {d.get('technologies', '')}",
+                f"Project Summary: {d.get('project_summary', '')}",
             ]
-            
-            # Filter out empty fields
             content = "\n".join(p for p in content_parts if not p.endswith(": "))
-            
-            metadata = {
-                "name": row.get("name", ""),
-                "seniority": row.get("seniority", ""),
-                "years_of_experience": row.get("years_of_experience", ""),
-                "current_role": row.get("current_role", ""),
-                "previous_jobs": row.get("previous_jobs", ""),
-                "degrees": row.get("degrees", ""),
-                "location": row.get("location", ""),
-                "languages": row.get("languages", ""),
-                "technologies": row.get("technologies", ""),
-                "project_summary": row.get("project_summary", ""),
-                "linkedin_url": row.get("linkedin_url", ""),
-                "github_url": row.get("github_url", ""),
-                "email": row.get("email", ""),
-                "status": row.get("status", ""),
-                "last_updated_at": row.get("last_updated_at", ""),
-            }
-            
+            metadata = {k: v for k, v in d.items() if k != "id"}
             documents.append(Document(page_content=content, metadata=metadata))
+        return documents
+    finally:
+        session.close()
 
-    return documents
+
+# Backward compatibility alias
+load_csv_as_documents = load_candidates_as_documents
 
 
 def build_vector_database():
-    #Build Chroma vector database from CSV talent pool.
-    print(f"Loading talent pool from: {CSV_PATH}")
+    """Build Chroma vector database from talent pool."""
+    print(f"Loading talent pool from database...")
 
-    documents = load_csv_as_documents()
+    documents = load_candidates_as_documents()
 
     if not documents:
-        print(f"No candidates found in CSV at '{CSV_PATH}'")
+        print("No candidates found in database.")
         return None
 
-    print(f"Loaded {len(documents)} candidate profiles from CSV.")
+    print(f"Loaded {len(documents)} candidate profiles from database.")
 
     embeddings = HuggingFaceEmbeddings(
         model_name="all-MiniLM-L6-v2",
         model_kwargs={"device": "cpu"},
     )
 
-    # Rebuild vector store each time (CSV is small, fast to index)
     vector_db = Chroma.from_documents(
         documents=documents,
         embedding=embeddings,
@@ -146,8 +128,8 @@ def score_shortlist(query: str, vector_db, top_n: int = 3) -> list[dict]:
           f"location={requirements.get('location')}")
 
     # Step 2: Retrieve candidate documents (score all candidates for deterministic strictness)
-    docs = load_csv_as_documents()
-    print(f"  [Scorer] Retrieved {len(docs)} candidate docs from CSV for full scoring")
+    docs = load_candidates_as_documents()
+    print(f"  [Scorer] Retrieved {len(docs)} candidate docs from database for full scoring")
 
     # Convert documents back to dicts for the scorer
     candidate_dicts = []
@@ -170,10 +152,9 @@ def score_shortlist(query: str, vector_db, top_n: int = 3) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Backward compatibility — keep create_retriever_chain for anything that
-# still references it, but it now just returns a thin wrapper.
+# Backward compatibility
 # ---------------------------------------------------------------------------
 
 def create_retriever_chain(vector_db):
-    """Legacy wrapper. Returns None — use score_shortlist() directly."""
+    """Legacy wrapper. Returns None -- use score_shortlist() directly."""
     return None

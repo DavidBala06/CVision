@@ -1,13 +1,12 @@
 """
-Pool Maintenance Module 
+Pool Maintenance Module
 
 Handles:
-Bulk refresh — update batch of candidates
-Auto-update — flag candidates with last_updated > 3 months
-Manual update — detect existing candidate, intelligent merge
+Bulk refresh -- update batch of candidates
+Auto-update -- flag candidates with last_updated > 3 months
+Manual update -- detect existing candidate, intelligent merge
 """
 import os
-import csv
 from pathlib import Path
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -21,7 +20,6 @@ from ai.guardrails import get_system_guardrail_prompt
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-CSV_PATH = Path(os.getenv("CSV_PATH", str(BASE_DIR / "data" / "talent_pool.csv")))
 
 
 def get_llm():
@@ -34,33 +32,35 @@ def get_llm():
 
 
 def get_stale_candidates(months_threshold: int = 3) -> list[dict]:
-    #Identify candidates needing refresh (last_updated > threshold)
-    if not CSV_PATH.exists():
-        return []
+    """Identify candidates needing refresh (last_updated > threshold)."""
+    from database import get_session, Candidate
 
     stale = []
     cutoff = datetime.now() - timedelta(days=months_threshold * 30)
 
-    with open(CSV_PATH, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            last_updated = row.get("last_updated_at", "")
+    session = get_session()
+    try:
+        candidates = session.query(Candidate).all()
+        for c in candidates:
+            last_updated = (c.last_updated_at or "").strip()
             if not last_updated:
-                stale.append({**row, "days_since_update": "never", "needs_refresh": True})
+                stale.append({**c.to_dict(), "days_since_update": "never", "needs_refresh": True})
                 continue
             try:
-                update_date = datetime.strptime(last_updated.strip(), "%Y-%m-%d")
+                update_date = datetime.strptime(last_updated, "%Y-%m-%d")
                 days_old = (datetime.now() - update_date).days
                 if update_date < cutoff:
-                    stale.append({**row, "days_since_update": days_old, "needs_refresh": True})
+                    stale.append({**c.to_dict(), "days_since_update": days_old, "needs_refresh": True})
             except ValueError:
-                stale.append({**row, "days_since_update": "invalid_date", "needs_refresh": True})
+                stale.append({**c.to_dict(), "days_since_update": "invalid_date", "needs_refresh": True})
+    finally:
+        session.close()
 
     return stale
 
 
 def intelligent_merge(existing_data: dict, new_data: dict) -> dict:
-    # AI-powered intelligent merge of old and new candidate data.
+    """AI-powered intelligent merge of old and new candidate data."""
     llm = get_llm()
     parser = JsonOutputParser()
 
@@ -69,9 +69,9 @@ def intelligent_merge(existing_data: dict, new_data: dict) -> dict:
 You are an HR data merge specialist. Compare two candidate profiles and produce a merged version.
 
 MERGE RULES:
-1. New field has data, old empty → use new.
-2. Both have data → prefer new (more recent).
-3. Old has data, new empty → KEEP old.
+1. New field has data, old empty -> use new.
+2. Both have data -> prefer new (more recent).
+3. Old has data, new empty -> KEEP old.
 4. For 'technologies', merge both lists (union).
 5. For 'previous_jobs', combine without duplicating.
 6. For 'years_of_experience', use the higher value.
@@ -102,74 +102,81 @@ linkedin_url, github_url, email.
 
 
 def bulk_refresh_candidates(candidate_names: list[str]) -> dict:
-    # Mark selected candidates as refreshed (update timestamp).
-    if not CSV_PATH.exists():
-        return {"error": "CSV not found", "refreshed": 0}
+    """Mark selected candidates as refreshed (update timestamp)."""
+    from database import get_session, Candidate
 
-    rows = []
+    session = get_session()
     refreshed = []
 
-    with open(CSV_PATH, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        fieldnames = reader.fieldnames
-        for row in reader:
-            if row.get("name", "").strip() in candidate_names:
-                github_url = row.get("github_url", "")
-                if github_url:
-                    from ai.github_sourcing import scrape_github_for_refresh
-                    new_data = scrape_github_for_refresh(github_url)
-                    if new_data:
-                        print(f"[Maintenance] Merging new GitHub data for {row['name']}")
-                        row = intelligent_merge(row, new_data)
-                        
-                row["last_updated_at"] = datetime.now().strftime("%Y-%m-%d")
-                refreshed.append(row["name"])
-            rows.append(row)
+    try:
+        candidates = session.query(Candidate).filter(
+            Candidate.name.in_(candidate_names)
+        ).all()
 
-    if refreshed:
-        with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
+        for candidate in candidates:
+            github_url = candidate.github_url or ""
+            if github_url:
+                from ai.github_sourcing import scrape_github_for_refresh
+                new_data = scrape_github_for_refresh(github_url)
+                if new_data:
+                    print(f"[Maintenance] Merging new GitHub data for {candidate.name}")
+                    merged = intelligent_merge(candidate.to_dict(), new_data)
+                    for key, value in merged.items():
+                        if value and hasattr(candidate, key):
+                            setattr(candidate, key, value)
+
+            candidate.last_updated_at = datetime.now().strftime("%Y-%m-%d")
+            refreshed.append(candidate.name)
+
+        total = session.query(Candidate).count()
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        print(f"[Maintenance] Refresh error: {e}")
+        total = 0
+    finally:
+        session.close()
 
     return {
         "refreshed_count": len(refreshed),
         "refreshed_names": refreshed,
-        "total_in_pool": len(rows)
+        "total_in_pool": total
     }
 
 
 def get_pool_stats() -> dict:
-    #Get talent pool statistics for metrics dashboard.
-    if not CSV_PATH.exists():
-        return {"total": 0}
+    """Get talent pool statistics for metrics dashboard."""
+    from database import get_session, Candidate
 
-    total = active = pending = stale_count = 0
-    cutoff = datetime.now() - timedelta(days=180)
-    seniority_dist = {}
-    location_dist = {}
+    session = get_session()
+    try:
+        candidates = session.query(Candidate).all()
+        total = len(candidates)
+        active = 0
+        pending = 0
+        stale_count = 0
+        cutoff = datetime.now() - timedelta(days=180)
+        seniority_dist = {}
+        location_dist = {}
 
-    with open(CSV_PATH, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            total += 1
-            status = row.get("status", "")
+        for c in candidates:
+            status = c.status or ""
             if status == "active":
                 active += 1
             elif status == "pending_consent":
                 pending += 1
 
-            last_updated = row.get("last_updated_at", "")
+            last_updated = (c.last_updated_at or "").strip()
             try:
-                if last_updated and datetime.strptime(last_updated.strip(), "%Y-%m-%d") < cutoff:
+                if last_updated and datetime.strptime(last_updated, "%Y-%m-%d") < cutoff:
                     stale_count += 1
             except ValueError:
                 pass
 
-            sen = row.get("seniority", "unknown") or "unknown"
+            sen = c.seniority or "unknown"
             seniority_dist[sen] = seniority_dist.get(sen, 0) + 1
-            loc = row.get("location", "unknown") or "unknown"
-            
+            loc = c.location or "unknown"
+
             # Normalize location
             loc_lower = loc.lower()
             if not loc_lower or loc_lower == "unknown" or loc_lower == "romania":
@@ -182,12 +189,14 @@ def get_pool_stats() -> dict:
                 else:
                     loc = "Bucharest"
             else:
-                loc = loc.replace(", Romania", "").replace(", România", "").strip()
-                
+                loc = loc.replace(", Romania", "").replace(", Romania", "").strip()
+
             location_dist[loc] = location_dist.get(loc, 0) + 1
 
-    return {
-        "total": total, "active": active, "pending_consent": pending,
-        "stale": stale_count, "seniority_distribution": seniority_dist,
-        "location_distribution": location_dist,
-    }
+        return {
+            "total": total, "active": active, "pending_consent": pending,
+            "stale": stale_count, "seniority_distribution": seniority_dist,
+            "location_distribution": location_dist,
+        }
+    finally:
+        session.close()
