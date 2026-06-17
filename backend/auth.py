@@ -39,34 +39,50 @@ def _get_connection() -> sqlite3.Connection:
 
 def init_auth_db():
     """Initialize the users table and seed the demo user if needed."""
-    conn = _get_connection()
-    cursor = conn.cursor()
+    try:
+        conn = _get_connection()
+        cursor = conn.cursor()
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            full_name TEXT NOT NULL DEFAULT '',
-            role TEXT NOT NULL DEFAULT 'recruiter',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                full_name TEXT NOT NULL DEFAULT '',
+                role TEXT NOT NULL DEFAULT 'recruiter',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
 
-    # Seed demo user if table is empty
-    cursor.execute("SELECT COUNT(*) FROM users")
-    count = cursor.fetchone()[0]
+        # Seed demo user if table is empty
+        cursor.execute("SELECT COUNT(*) FROM users")
+        count = cursor.fetchone()[0]
 
-    if count == 0:
-        demo_hash = _hash_password("talent2024")
-        cursor.execute(
-            "INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
-            ("demo", demo_hash, "Demo Recruiter", "recruiter"),
-        )
-        print("[Auth] Seeded demo user: demo / talent2024")
+        if count == 0:
+            demo_hash = _hash_password("talent2024")
+            cursor.execute(
+                "INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
+                ("demo", demo_hash, "Demo Recruiter", "recruiter"),
+            )
+            print("[Auth] Seeded demo user: demo / talent2024")
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+        conn.close()
+    except sqlite3.DatabaseError as e:
+        # Ensure connection is closed before unlinking so Windows doesn't lock the file
+        if 'conn' in locals():
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+        if "malformed" in str(e).lower() or "not a database" in str(e).lower():
+            print("[Auth] Corrupt database detected. Deleting and recreating...")
+            if DB_PATH.exists():
+                DB_PATH.unlink()
+            init_auth_db()
+        else:
+            raise
 
 
 def authenticate_user(username: str, password: str) -> dict | None:
