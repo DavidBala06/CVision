@@ -1,7 +1,7 @@
 """
 FastAPI Backend
 
-All 12 API endpoints for the AI Talent Pool Manager.
+All API endpoints for the AI Talent Pool Manager.
 
 """
 import io
@@ -20,7 +20,7 @@ from typing import Optional, List
 
 from ai.RAG_engine import build_vector_database, score_shortlist
 from ai.cv_ingestion import (
-    extract_from_text, check_duplicate, add_candidate_to_csv, update_candidate_in_csv,
+    extract_from_text, check_duplicate, add_candidate_to_pool, update_candidate_in_pool,
     is_github_url, extract_from_github_url,
 )
 from ai.pool_maintenance import get_stale_candidates, intelligent_merge, bulk_refresh_candidates, get_pool_stats
@@ -29,6 +29,7 @@ from ai.github_sourcing import search_by_criteria, search_by_profile
 from ai.guardrails import sanitize_input
 from scraper.parser import extract_text_from_pdf
 from auth import init_auth_db, authenticate_user
+from database import init_db, get_session, Candidate, HiringRequest, Application
 
 app = FastAPI(title="TalentAI Agent", version="2.0.0")
 
@@ -41,19 +42,22 @@ app.add_middleware(
 )
 
 BASE_DIR = Path(__file__).resolve().parent
-CSV_PATH = Path(os.getenv("CSV_PATH", str(BASE_DIR / "data" / "talent_pool.csv")))
 
 # Initialize Auth DB
 print("Initializing Auth Database...")
 init_auth_db()
 
+# Initialize main database (candidates, hiring requests, applications)
+print("Initializing Main Database...")
+init_db()
+
 # Initialize RAG
-print("Initializing Vector Database from CSV...")
+print("Initializing Vector Database...")
 db = build_vector_database()
 if db:
-    print("Vector database built successfully from talent_pool.csv")
+    print("Vector database built successfully.")
 else:
-    print("Warning: Vector database could not be built. Run migration script first.")
+    print("Warning: Vector database could not be built.")
 
 # Models
 
@@ -66,6 +70,7 @@ class MatchRequest(BaseModel):
 
 class IngestApproveRequest(BaseModel):
     candidate_data: dict
+    hiring_request_id: Optional[int] = None
 
 class RefreshRequest(BaseModel):
     candidate_names: list[str]
@@ -93,7 +98,14 @@ class ExportShortlistRequest(BaseModel):
     candidates: List[dict]
     job_description: str = ""
 
-# ENDPOINT: POST /api/login — Authentication
+class AssignToJobRequest(BaseModel):
+    candidate_name: str
+    source: str = "talent_pool"
+
+
+# ═══════════════════════════════════════════
+# AUTH
+# ═══════════════════════════════════════════
 
 @app.post("/api/login")
 async def login(request: LoginRequest):
@@ -111,17 +123,123 @@ async def login(request: LoginRequest):
         },
     }
 
-# ENDPOINT: GET /api/pending-actions — Aggregated recruiter tasks
+
+# ═══════════════════════════════════════════
+# HIRING REQUESTS
+# ═══════════════════════════════════════════
+
+@app.get("/api/hiring-requests")
+async def list_hiring_requests():
+    """List all hiring requests with aggregated counts."""
+    session = get_session()
+    try:
+        requests = session.query(HiringRequest).all()
+        return [hr.to_dict() for hr in requests]
+    finally:
+        session.close()
+
+
+@app.get("/api/hiring-requests/{hr_id}")
+async def get_hiring_request(hr_id: int):
+    """Get a single hiring request with its JD."""
+    session = get_session()
+    try:
+        hr = session.query(HiringRequest).filter(HiringRequest.id == hr_id).first()
+        if not hr:
+            raise HTTPException(status_code=404, detail="Hiring request not found.")
+        return hr.to_dict()
+    finally:
+        session.close()
+
+
+@app.get("/api/hiring-requests/{hr_id}/applications")
+async def get_applications(hr_id: int):
+    """List applications for a hiring request, split into applicants and leads."""
+    session = get_session()
+    try:
+        hr = session.query(HiringRequest).filter(HiringRequest.id == hr_id).first()
+        if not hr:
+            raise HTTPException(status_code=404, detail="Hiring request not found.")
+
+        apps = session.query(Application).filter(
+            Application.hiring_request_id == hr_id
+        ).all()
+
+        applicants = [a.to_dict() for a in apps if a.category == "applicant"]
+        leads = [a.to_dict() for a in apps if a.category == "lead"]
+
+        return {
+            "hiring_request": hr.to_dict(),
+            "applicants": applicants,
+            "leads": leads,
+            "total": len(apps),
+        }
+    finally:
+        session.close()
+
+
+@app.post("/api/hiring-requests/{hr_id}/assign")
+async def assign_to_job(hr_id: int, request: AssignToJobRequest):
+    """Assign a candidate from the talent pool to a job opening (creates a lead)."""
+    session = get_session()
+    try:
+        hr = session.query(HiringRequest).filter(HiringRequest.id == hr_id).first()
+        if not hr:
+            raise HTTPException(status_code=404, detail="Hiring request not found.")
+
+        # Find candidate in DB
+        candidate = session.query(Candidate).filter(
+            Candidate.name == request.candidate_name
+        ).first()
+
+        # Check for existing application
+        existing = session.query(Application).filter(
+            Application.hiring_request_id == hr_id,
+            Application.candidate_name == request.candidate_name,
+        ).first()
+        if existing:
+            return {"success": False, "message": "Candidate already assigned to this job."}
+
+        app_entry = Application(
+            hiring_request_id=hr_id,
+            candidate_id=candidate.id if candidate else None,
+            candidate_name=request.candidate_name,
+            source=request.source,
+            applied_date=datetime.now().strftime("%Y-%m-%d"),
+            step="applied",
+            category="lead",
+        )
+        session.add(app_entry)
+        session.commit()
+
+        return {"success": True, "message": f"{request.candidate_name} assigned to {hr.job_title}."}
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        session.close()
+
+
+@app.get("/api/job-openings")
+async def list_job_openings():
+    """Lightweight list of open jobs for dropdowns."""
+    session = get_session()
+    try:
+        jobs = session.query(HiringRequest).filter(
+            HiringRequest.status == "open"
+        ).all()
+        return [{"id": j.id, "job_title": j.job_title, "location": j.location, "description": j.description} for j in jobs]
+    finally:
+        session.close()
+
+
+# ═══════════════════════════════════════════
+# PENDING ACTIONS
+# ═══════════════════════════════════════════
 
 @app.get("/api/pending-actions")
 async def get_pending_actions():
-    """Aggregate actionable tasks for the recruiter dashboard.
-    
-    Checks three sources:
-    1. Stale profiles (>3 months since last update)
-    2. Follow-up needed (email sent >7 days ago, no reply)
-    3. New applications (status == pending_consent)
-    """
+    """Aggregate actionable tasks for the recruiter dashboard."""
     actions = []
 
     # 1. Stale profiles
@@ -138,83 +256,80 @@ async def get_pending_actions():
     except Exception:
         pass
 
-    # 2. Follow-up needed (email_sent + >7 days ago)
-    # 3. New applications (pending_consent)
-    followup_candidates = []
-    new_app_candidates = []
+    # 2. Follow-up needed + 3. New applications
+    session = get_session()
+    try:
+        followup_candidates = []
+        new_app_candidates = []
 
-    if CSV_PATH.exists():
-        with open(CSV_PATH, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                # Follow-up check
-                if row.get("outreach_status") == "email_sent" and row.get("outreach_date"):
-                    try:
-                        sent_date = datetime.strptime(row["outreach_date"].strip(), "%Y-%m-%d")
-                        if (datetime.now() - sent_date).days >= 7:
-                            followup_candidates.append(row.get("name", "Unknown"))
-                    except ValueError:
-                        pass
+        candidates = session.query(Candidate).all()
+        for c in candidates:
+            if c.outreach_status == "email_sent" and c.outreach_date:
+                try:
+                    sent_date = datetime.strptime(c.outreach_date.strip(), "%Y-%m-%d")
+                    if (datetime.now() - sent_date).days >= 7:
+                        followup_candidates.append(c.name)
+                except ValueError:
+                    pass
 
-                # New applications check
-                if row.get("status") == "pending_consent":
-                    new_app_candidates.append(row.get("name", "Unknown"))
+            if c.status == "pending_consent":
+                new_app_candidates.append(c.name)
 
-    if followup_candidates:
-        actions.append({
-            "type": "follow_up_needed",
-            "priority": "high",
-            "count": len(followup_candidates),
-            "candidates": followup_candidates[:5],
-            "message": f"{len(followup_candidates)} candidate{'s' if len(followup_candidates) != 1 else ''} require follow-up (no response in 7+ days)",
-        })
+        if followup_candidates:
+            actions.append({
+                "type": "follow_up_needed",
+                "priority": "high",
+                "count": len(followup_candidates),
+                "candidates": followup_candidates[:5],
+                "message": f"{len(followup_candidates)} candidate{'s' if len(followup_candidates) != 1 else ''} require follow-up (no response in 7+ days)",
+            })
 
-    if new_app_candidates:
-        actions.append({
-            "type": "new_applications",
-            "priority": "high",
-            "count": len(new_app_candidates),
-            "candidates": new_app_candidates[:5],
-            "message": f"Review {len(new_app_candidates)} new candidate{'s' if len(new_app_candidates) != 1 else ''} pending consent",
-        })
+        if new_app_candidates:
+            actions.append({
+                "type": "new_applications",
+                "priority": "high",
+                "count": len(new_app_candidates),
+                "candidates": new_app_candidates[:5],
+                "message": f"Review {len(new_app_candidates)} new candidate{'s' if len(new_app_candidates) != 1 else ''} pending consent",
+            })
+    finally:
+        session.close()
 
     return {
         "actions": actions,
         "total_actions": sum(a["count"] for a in actions),
     }
 
-# ENDPOINT: GET /api/candidates — Dashboard table
+
+# ═══════════════════════════════════════════
+# CANDIDATES (from DB)
+# ═══════════════════════════════════════════
 
 @app.get("/api/candidates")
 async def get_candidates():
-    # Return all candidates from CSV for the dashboard table.
-    if not CSV_PATH.exists():
-        return []
-    
-    candidates = []
-    with open(CSV_PATH, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            candidates.append(row)
-    
-    return candidates
+    """Return all candidates from database for the dashboard table."""
+    session = get_session()
+    try:
+        candidates = session.query(Candidate).all()
+        return [c.to_dict() for c in candidates]
+    finally:
+        session.close()
 
-# ENDPOINT: POST /api/match —  Shortlisting (deterministic scorer)
+
+# ═══════════════════════════════════════════
+# SHORTLISTING
+# ═══════════════════════════════════════════
 
 @app.post("/api/match")
 async def match_candidates(request: MatchRequest):
-    """Shortlist candidates using the weighted scoring pipeline.
-    
-    Flow: LLM parses JD → vector DB retrieves candidates → deterministic
-    scorer ranks them with weighted formula → returns top 3.
-    """
+    """Shortlist candidates using the weighted scoring pipeline."""
     clean_query, is_safe = sanitize_input(request.query)
     if not is_safe:
         raise HTTPException(status_code=400, detail="Query contains disallowed patterns.")
-    
+
     if not db:
         return []
-    
+
     print(f"\n[API] Match query: {clean_query}")
     try:
         candidates = score_shortlist(clean_query, db, top_n=3)
@@ -224,30 +339,29 @@ async def match_candidates(request: MatchRequest):
         print(f"[API] Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# ENDPOINT: POST /api/ingest — CV Extraction
+
+# ═══════════════════════════════════════════
+# CV INGESTION
+# ═══════════════════════════════════════════
 
 @app.post("/api/ingest")
 async def ingest_cv(file: UploadFile = File(None), text: str = Form(None)):
-    
-    #Upload a CV (PDF) or paste LinkedIn text.
-    #AI extracts fields → returns preview for human approval.
-    
+    """Upload a CV (PDF) or paste LinkedIn text.
+    AI extracts fields -> returns preview for human approval."""
     raw_text = ""
-    
+
     if file:
-        # Save uploaded PDF temporarily and extract text
         suffix = Path(file.filename).suffix if file.filename else ".pdf"
         tmp_dir = BASE_DIR / "data" / "uploads"
         tmp_dir.mkdir(parents=True, exist_ok=True)
         tmp_path = tmp_dir / f"upload_{datetime.now().strftime('%Y%m%d_%H%M%S')}{suffix}"
-        
+
         content = await file.read()
         with open(tmp_path, "wb") as f:
             f.write(content)
-        
+
         raw_text = extract_text_from_pdf(str(tmp_path))
-        
-        # Clean up temp file
+
         try:
             os.remove(tmp_path)
         except OSError:
@@ -256,25 +370,23 @@ async def ingest_cv(file: UploadFile = File(None), text: str = Form(None)):
         raw_text = text
     else:
         raise HTTPException(status_code=400, detail="Provide either a file or text.")
-    
+
     if not raw_text.strip():
         raise HTTPException(status_code=400, detail="Could not extract text from the provided input.")
-    
-    # --- Route: GitHub URL vs plain CV text ---------------------------------
+
+    # Route: GitHub URL vs plain CV text
     source = "cv"
     if not file and is_github_url(raw_text.strip()):
-        # GitHub profile URL — use API directly, no LLM needed
         print(f"[API] Detected GitHub URL: {raw_text.strip()}")
         extracted = extract_from_github_url(raw_text.strip())
         source = "github"
     else:
-        # Plain text (CV/LinkedIn) — use LLM NER
         extracted = extract_from_text(raw_text)
-    
+
     if "error" in extracted:
         raise HTTPException(status_code=500, detail=extracted["error"])
-    
-    # Confidence scoring — count populated fields
+
+    # Confidence scoring
     key_fields = ["name", "current_role", "technologies", "seniority",
                   "years_of_experience", "location", "email"]
     filled = sum(1 for f in key_fields if str(extracted.get(f, "") or "").strip())
@@ -292,7 +404,7 @@ async def ingest_cv(file: UploadFile = File(None), text: str = Form(None)):
         email=extracted.get("email", ""),
         linkedin_url=extracted.get("linkedin_url", "")
     )
-    
+
     return {
         "extracted_data": extracted,
         "is_duplicate": duplicate is not None,
@@ -304,82 +416,95 @@ async def ingest_cv(file: UploadFile = File(None), text: str = Form(None)):
                    else "Candidate may already exist in the pool. Review and choose to merge or add as new."
     }
 
-# ENDPOINT: POST /api/ingest/approve — Human approves extraction
 
 @app.post("/api/ingest/approve")
 async def approve_ingestion(request: IngestApproveRequest):
-    # Human-in-the-loop: approve extracted data and write to CSV.
+    """Human-in-the-loop: approve extracted data and write to DB."""
     global db
-    
+
     candidate_data = request.candidate_data
-    # Check if this is an existing candidate
     duplicate = check_duplicate(
         name=candidate_data.get("name", ""),
         email=candidate_data.get("email", ""),
         linkedin_url=candidate_data.get("linkedin_url", "")
     )
-    
+
     if duplicate:
-        # Merge operation
         merged = intelligent_merge(duplicate, candidate_data)
-        success = update_candidate_in_csv(duplicate["name"], merged)
+        success = update_candidate_in_pool(duplicate["name"], merged)
         action_word = "merged into"
     else:
-        # New candidate
-        success = add_candidate_to_csv(candidate_data)
+        success = add_candidate_to_pool(candidate_data)
         action_word = "added to"
 
     if not success:
-        raise HTTPException(status_code=500, detail="Failed to update talent pool CSV.")
-    
+        raise HTTPException(status_code=500, detail="Failed to update talent pool.")
+
+    # If a hiring request was specified, create an application
+    if request.hiring_request_id:
+        session = get_session()
+        try:
+            app_entry = Application(
+                hiring_request_id=request.hiring_request_id,
+                candidate_name=candidate_data.get("name", ""),
+                source="cv_upload",
+                applied_date=datetime.now().strftime("%Y-%m-%d"),
+                step="applied",
+                category="applicant",
+            )
+            session.add(app_entry)
+            session.commit()
+        except Exception:
+            session.rollback()
+        finally:
+            session.close()
+
     # Rebuild vector DB after adding/merging
     db = build_vector_database()
-    
-    return {"message": f" {candidate_data.get('name', 'Candidate')} {action_word} talent pool.", "success": True}
 
-# ENDPOINT: GET /api/refresh/stale, auto-update detection
+    return {"message": f"{candidate_data.get('name', 'Candidate')} {action_word} talent pool.", "success": True}
+
+
+# ═══════════════════════════════════════════
+# POOL MAINTENANCE
+# ═══════════════════════════════════════════
 
 @app.get("/api/refresh/stale")
 async def get_stale():
-    #Identify candidates needing refresh (last update > 3 months).
+    """Identify candidates needing refresh (last update > 3 months)."""
     stale = get_stale_candidates(months_threshold=3)
     return {"stale_candidates": stale, "count": len(stale)}
 
-# ENDPOINT: POST /api/refresh/update, bulk refresh
 
 @app.post("/api/refresh/update")
 async def refresh_candidates(request: RefreshRequest):
-    # Bulk refresh selected candidates (update timestamps).
+    """Bulk refresh selected candidates (update timestamps)."""
     global db
-    
     result = bulk_refresh_candidates(request.candidate_names)
-    
-    # Rebuild vector DB after refresh
     db = build_vector_database()
-    
     return result
 
-# ENDPOINT: POST /api/refresh/merge - manual update + merge
 
 @app.post("/api/refresh/merge")
 async def merge_candidate(request: ManualUpdateRequest):
-    # Manually update a candidate with new data (AI powered merge).
+    """Manually update a candidate with new data (AI powered merge)."""
     global db
-    
     existing = check_duplicate(name=request.candidate_name)
     if not existing:
         raise HTTPException(status_code=404, detail="Candidate not found in pool.")
-    
+
     merged = intelligent_merge(existing, request.new_data)
-    success = update_candidate_in_csv(request.candidate_name, merged)
-    
+    success = update_candidate_in_pool(request.candidate_name, merged)
+
     if success:
         db = build_vector_database()
-    
+
     return {"merged_data": merged, "success": success}
 
 
-# ENDPOINT: POST /api/export-shortlist — Download shortlist as CSV
+# ═══════════════════════════════════════════
+# EXPORT
+# ═══════════════════════════════════════════
 
 @app.post("/api/export-shortlist")
 async def export_shortlist(request: ExportShortlistRequest):
@@ -398,7 +523,7 @@ async def export_shortlist(request: ExportShortlistRequest):
         if isinstance(row["tags"], list):
             row["tags"] = ", ".join(row["tags"])
         writer.writerow(row)
-    
+
     output.seek(0)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
     filename = f"shortlist_{timestamp}.csv"
@@ -408,76 +533,96 @@ async def export_shortlist(request: ExportShortlistRequest):
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
-# ENDPOINT: POST /api/draft-email- Email drafts
+
+# ═══════════════════════════════════════════
+# OUTREACH / ENGAGE
+# ═══════════════════════════════════════════
 
 @app.post("/api/draft-email")
 async def draft_email(request: EmailDraftRequest):
-    # Generate personalized outreach email for a candidate.
-    # Find candidate in CSV
+    """Generate personalized outreach email for a candidate."""
     candidate = check_duplicate(name=request.candidate_name)
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found.")
-    
     email = generate_email_draft(candidate, request.job_description)
     return {"candidate_name": request.candidate_name, "email_draft": email}
 
-# ENDPOINT: POST /api/draft-followup - follow-up drafts
 
 @app.post("/api/draft-followup")
 async def draft_followup(request: FollowUpRequest):
-    # Generate follow-up email for non-replying candidate.
+    """Generate follow-up email for non-replying candidate."""
     candidate = check_duplicate(name=request.candidate_name)
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found.")
-    
     followup = generate_followup_draft(candidate)
     return {"candidate_name": request.candidate_name, "followup_draft": followup}
 
-# ENDPOINT: GET + POST /api/outreach-status — Progress monitoring
 
 @app.get("/api/outreach-status")
 async def get_outreach_status():
-    # Get outreach progress monitoring dashboard data.
+    """Get outreach progress monitoring dashboard data."""
     return get_outreach_dashboard()
 
 @app.post("/api/outreach-status")
 async def set_outreach_status(request: OutreachStatusUpdate):
-    # Update a candidate's outreach status.
+    """Update a candidate's outreach status."""
     success = update_outreach_status(request.candidate_name, request.status)
     if not success:
         raise HTTPException(status_code=400, detail="Failed to update status.")
     return {"success": True, "message": f"Status updated to '{request.status}'"}
 
-# ENDPOINT: POST /api/github-search — GitHub sourcing
+
+# ═══════════════════════════════════════════
+# GITHUB / SOURCES
+# ═══════════════════════════════════════════
 
 @app.post("/api/github-search")
 async def github_search(request: GitHubSearchRequest):
-    # Search GitHub for developer candidates.
+    """Search GitHub for developer candidates."""
     clean_query, is_safe = sanitize_input(request.query)
     if not is_safe:
         raise HTTPException(status_code=400, detail="Query contains disallowed patterns.")
-    
+
     if request.search_type == "criteria":
         result = search_by_criteria(clean_query)
     elif request.search_type == "profile":
         result = search_by_profile(clean_query)
     else:
         raise HTTPException(status_code=400, detail="search_type must be 'criteria' or 'profile'")
-    
+
     return result
 
-# ENDPOINT: GET /api/metrics — Success metrics dashboard
+
+# ═══════════════════════════════════════════
+# ANALYTICS / METRICS
+# ═══════════════════════════════════════════
+
 @app.get("/api/metrics")
 async def get_metrics():
-    #Success metrics and pool health stats.
+    """Success metrics and pool health stats."""
     stats = get_pool_stats()
     outreach = get_outreach_dashboard()
-    
+
     return {
         "pool_stats": stats,
         "outreach_summary": outreach.get("summary", {}),
         "target_accuracy": "80%",
         "evaluation_framework": "LangChain-based (as recommended by Linnify)",
+    }
+
+
+# ═══════════════════════════════════════════
+# LINNIFY API STUB
+# ═══════════════════════════════════════════
+
+@app.get("/api/linnify/jobs")
+async def linnify_jobs_stub():
+    """Stub endpoint for Linnify API integration.
+    When Linnify provides their API, this will proxy/sync their job data."""
+    return {
+        "source": "linnify",
+        "status": "stub",
+        "message": "Linnify API integration pending. Using local demo data.",
     }
 
 
