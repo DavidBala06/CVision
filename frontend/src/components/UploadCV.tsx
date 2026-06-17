@@ -1,6 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './UploadCV.css';
 
+interface JobOpening {
+  id: number;
+  job_title: string;
+}
+
 interface UploadCVProps {
   onCandidateAdded: () => void;
 }
@@ -39,8 +44,15 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
   const [dragActive, setDragActive] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
+  const [jobs, setJobs] = useState<JobOpening[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState<string>('');
+
   // Detect GitHub URL in textarea for smart UI feedback
   const isGitHubInput = !file && /github\.com\/[^\s/]+\/?$/.test(pastedText.trim());
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
 
   // Clean up object URL when component unmounts or PDF changes
   useEffect(() => {
@@ -48,6 +60,18 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
       if (pdfUrl) URL.revokeObjectURL(pdfUrl);
     };
   }, [pdfUrl]);
+
+  const fetchJobs = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/job-openings');
+      if (res.ok) {
+        const data = await res.json();
+        setJobs(data);
+      }
+    } catch (err) {
+      console.error('Failed to load jobs:', err);
+    }
+  };
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -99,7 +123,7 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
       } else if (pastedText.trim()) {
         formData.append('text', pastedText);
       } else {
-        setMessage('Please upload a PDF or paste LinkedIn text.');
+        setMessage('Please upload a PDF or paste text.');
         setIsExtracting(false);
         return;
       }
@@ -137,6 +161,7 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
     setIsApproving(true);
 
     try {
+      // 1. Approve candidate
       const res = await fetch('http://127.0.0.1:8000/api/ingest/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -145,11 +170,33 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
 
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
+      let finalMessage = data.message;
 
-      setSuccessMsg(data.message);
+      // 2. Assign to Job if selected
+      if (selectedJobId && extractedData.name) {
+        try {
+          const assignRes = await fetch(`http://127.0.0.1:8000/api/hiring-requests/${selectedJobId}/assign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              candidate_name: extractedData.name,
+              source: extractionSource === 'github' ? 'github' : 'cv_upload'
+            })
+          });
+          const assignData = await assignRes.json();
+          if (assignData.success) {
+            finalMessage += ` & Assigned to Job successfully.`;
+          }
+        } catch (err) {
+          console.error('Failed to assign job:', err);
+        }
+      }
+
+      setSuccessMsg(finalMessage);
       setExtractedData(null);
       setFile(null);
       setPastedText('');
+      setSelectedJobId('');
       if (pdfUrl) {
         URL.revokeObjectURL(pdfUrl);
         setPdfUrl(null);
@@ -179,7 +226,7 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
     <div className="upload-cv">
       <div className="section-header">
         <div>
-          <div className="section-title">Add Candidate</div>
+          <div className="section-title">Add Profile</div>
           <div className="section-subtitle">Import from CV or GitHub profile</div>
         </div>
       </div>
@@ -218,7 +265,7 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
               <div className="paste-area">
                 <div className="paste-label">
                   {isGitHubInput
-                    ? <span className="github-detected-hint">🐙 GitHub profile detected — will use GitHub API directly</span>
+                    ? <span className="github-detected-hint">GitHub profile detected — will use GitHub API directly</span>
                     : <span className="paste-label-text">Paste a GitHub URL or any profile text</span>
                   }
                 </div>
@@ -246,7 +293,7 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
           </div>
         )}
 
-        {/* Step 2: Review (Human-in-the-Loop) — with embedded PDF viewer */}
+        {/* Step 2: Review (Human-in-the-Loop) */}
         {extractedData && (
           <div className={`review-area ${pdfUrl ? 'has-pdf' : ''}`}>
             <div className="review-header">
@@ -254,21 +301,21 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
                 <h3>Review Extracted Data</h3>
                 {extractionSource === 'github' && (
                   <div className="source-badge source-github" title="Data fetched directly from GitHub API">
-                    🐙 From GitHub
+                    From GitHub
                   </div>
                 )}
                 {confidenceLevel && (
                   <div className={`confidence-badge confidence-${confidenceLevel}`} title={`${confidenceRatio}% of key fields extracted`}>
-                    {confidenceLevel === 'high' && '✓ High Confidence'}
-                    {confidenceLevel === 'medium' && '⚠ Medium Confidence'}
-                    {confidenceLevel === 'low' && '✗ Low Confidence'}
+                    {confidenceLevel === 'high' && 'High Confidence'}
+                    {confidenceLevel === 'medium' && 'Medium Confidence'}
+                    {confidenceLevel === 'low' && 'Low Confidence'}
                     <span className="confidence-ratio">{confidenceRatio}%</span>
                   </div>
                 )}
               </div>
               <p className="review-hint">
                 {extractionSource === 'github'
-                  ? 'Data imported from GitHub API. Fill in missing fields (e.g. Years of Experience, Spoken Languages) before approving.'
+                  ? 'Data imported from GitHub API. Fill in missing fields before approving.'
                   : 'Edit any field before approving. All data is AI-extracted — please verify.'
                 }
               </p>
@@ -320,12 +367,27 @@ const UploadCV: React.FC<UploadCVProps> = ({ onCandidateAdded }) => {
                     </div>
                   ))}
                 </div>
+
+                {/* Job Assignment */}
+                <div className="review-job-assignment mt-4 pt-4 border-t border-border-color">
+                  <h4 className="text-sm font-semibold mb-2">Assign to Hiring Request (Optional)</h4>
+                  <select 
+                    className="form-select w-full max-w-md" 
+                    value={selectedJobId} 
+                    onChange={e => setSelectedJobId(e.target.value)}
+                  >
+                    <option value="">Do not assign</option>
+                    {jobs.map(j => (
+                      <option key={j.id} value={j.id}>{j.job_title}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
             <div className="review-actions">
               <button className="btn btn-secondary" onClick={handleBack}>
-                ← Back
+                Back
               </button>
               <button className="btn btn-success" onClick={handleApprove} disabled={isApproving}>
                 {isApproving
