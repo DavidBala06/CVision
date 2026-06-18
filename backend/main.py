@@ -316,6 +316,21 @@ async def get_candidates():
         session.close()
 
 
+@app.get("/api/candidates/by-name/{name}")
+async def get_candidate_by_name(name: str):
+    """Return full profile for a single candidate, looked up by name."""
+    session = get_session()
+    try:
+        candidate = session.query(Candidate).filter(
+            Candidate.name.ilike(name.strip())
+        ).first()
+        if not candidate:
+            raise HTTPException(status_code=404, detail="Candidate not found.")
+        return candidate.to_dict()
+    finally:
+        session.close()
+
+
 # ═══════════════════════════════════════════
 # SHORTLISTING
 # ═══════════════════════════════════════════
