@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import './CandidateDetailsModal.css';
 
 interface CandidateProfile {
@@ -79,7 +80,7 @@ const CandidateDetailsModal: React.FC<CandidateDetailsModalProps> = ({ candidate
     return map[status] || status;
   };
 
-  return (
+  const modalContent = (
     <div className="cdm-overlay" onClick={handleOverlayClick}>
       <div className="cdm-panel">
         <button className="cdm-close" onClick={onClose}>x</button>
@@ -219,6 +220,8 @@ const CandidateDetailsModal: React.FC<CandidateDetailsModalProps> = ({ candidate
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
 
 export default CandidateDetailsModal;
