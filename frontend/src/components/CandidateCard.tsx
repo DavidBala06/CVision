@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './CandidateCard.css';
 import type { Candidate } from '../App';
+import CandidateDetailsModal from './CandidateDetailsModal';
 
 interface JobOpening {
   id: number;
@@ -22,6 +23,7 @@ const CandidateCard: React.FC<CandidateCardProps> = (props) => {
     compareSelected, onToggleCompare,
   } = props;
 
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showAssignDropdown, setShowAssignDropdown] = useState(false);
   const [jobs, setJobs] = useState<JobOpening[]>([]);
   const [assigningId, setAssigningId] = useState<number | null>(null);
@@ -188,6 +190,13 @@ const CandidateCard: React.FC<CandidateCardProps> = (props) => {
           )}
         </div>
 
+        <button
+          className="btn btn-sm btn-secondary"
+          onClick={() => setShowDetailsModal(true)}
+        >
+          Details
+        </button>
+
         {onDraftEmail && (
           <button
             className="btn btn-sm btn-secondary draft-email-btn"
@@ -196,12 +205,14 @@ const CandidateCard: React.FC<CandidateCardProps> = (props) => {
             Draft Email
           </button>
         )}
-        {github_url && (
-          <a href={github_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm linkedin-btn">
-            GitHub
-          </a>
-        )}
       </div>
+
+      {showDetailsModal && (
+        <CandidateDetailsModal
+          candidateName={name}
+          onClose={() => setShowDetailsModal(false)}
+        />
+      )}
     </div>
   );
 };
