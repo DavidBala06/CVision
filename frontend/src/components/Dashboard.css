@@ -6,13 +6,53 @@
   padding-bottom: 2rem;
 }
 
+/* View Toggle */
+.dashboard-view-toggle {
+  display: flex;
+  gap: 2px;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dashboard-view-toggle .toggle-btn {
+  padding: 0.5rem 1.25rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  border-radius: 0;
+}
+
+.dashboard-view-toggle .toggle-btn:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.dashboard-view-toggle .toggle-btn:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-left: none;
+}
+
+.dashboard-view-toggle .toggle-btn:hover {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dashboard-view-toggle .toggle-btn.active {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: white;
+}
+
 /* Widgets Grid */
 .dashboard-widgets-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: 1.5rem;
-  padding: 0 1.5rem;
-  margin-top: 1.5rem;
+  padding: 1.5rem;
 }
 
 .dashboard-widget {
@@ -169,4 +209,175 @@
   text-align: center;
   color: var(--text-muted);
   font-size: 0.875rem;
+}
+
+/* ---- Talent Database Table ---- */
+.dashboard-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.filter-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.stale-ok {
+  font-size: 0.75rem;
+  color: #4ade80;
+  font-weight: 600;
+}
+
+/* Table shared styles (for the talent database view) */
+.table-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 1.5rem 1.5rem;
+}
+
+.talent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.talent-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.talent-table th {
+  padding: 0.75rem 0.85rem;
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: var(--bg-table-header);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.talent-table td {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--border-color-subtle);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.table-row:hover {
+  background: var(--bg-table-row-hover);
+}
+
+.cell-name {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 180px;
+}
+
+.name-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-primary), #818cf8);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.name-text {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.name-email {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.seniority-pill {
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+}
+
+.cell-role {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell-tech {
+  max-width: 200px;
+}
+
+.tech-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.tech-tag {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.4rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
+}
+
+.tech-more {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  padding: 0.1rem 0.3rem;
+}
+
+.cell-links {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: var(--transition-fast);
+}
+
+.link-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.link-btn.gh {
+  color: var(--text-muted);
 }
